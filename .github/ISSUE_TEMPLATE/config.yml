@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/dobo123123/dobocache/security/advisories/new
+    about: Report a vulnerability privately. Do not open a public issue for security problems — see SECURITY.md.
+  - name: Setup help and usage questions
+    url: https://github.com/dobo123123/dobocache/discussions
+    about: Ask how to install, configure or integrate the server with your MCP client.
+  - name: Read the documentation first
+    url: https://github.com/dobo123123/dobocache#readme
+    about: Install steps, tool reference, white-box report configuration and platform notes.

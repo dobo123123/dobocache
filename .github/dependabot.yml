@@ -1,0 +1,43 @@
+version: 2
+
+# Weekly dependency updates for npm only.
+# Minor/patch bumps are grouped (dev and prod separately); semver-major bumps
+# open individually for manual review. Workflow upgrades are handled by hand,
+# since a new Action version can change runner behavior.
+# Development-dependency majors are ignored on purpose: they would otherwise
+# open weekly PRs that each require non-trivial test-infrastructure migration.
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    versioning-strategy: "increase-if-necessary"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+    groups:
+      # Dev minor+patch in one PR.
+      dev-minor-patch:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      # Prod minor+patch grouped separately, so it can be reverted on its own.
+      prod-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    # semver-major is never grouped; it needs manual review.
+    ignore:
+      - dependency-name: "*"
+        dependency-type: "development"
+        update-types:
+          - "version-update:semver-major"
