@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.log
+.env
+*.zip
+*.tgz
+temp/
+test_out*.txt
+vitest-out.txt
+data/logs/
+data/**
+
+# CI smoke failure artifacts (generated locally, never committed)
+ci-smoke-artifacts/

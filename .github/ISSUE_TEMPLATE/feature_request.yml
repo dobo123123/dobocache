@@ -1,0 +1,62 @@
+name: Feature request
+description: Propose a change or an addition — please read the scope rules first
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        DoboCache is intentionally small. "Small and sharp" beats "feature-complete":
+        proposals that add configuration, dependencies or new MCP tools are much harder
+        to accept. See CONTRIBUTING.md → *Project scope* before filling this in.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation you are in, not the solution you have in mind.
+      placeholder: When I ..., the server ..., which means ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should happen instead? If it changes a tool name, argument, return shape or default, say so explicitly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including "do nothing" and any workaround you already use.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Does this change anything that is already public?
+      options:
+        - "No — purely internal, output stays byte-identical"
+        - "Yes — tool description, arguments or return shape change"
+        - "Yes — default behaviour changes"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      options:
+        - label: The proposal keeps output deterministic (same input → byte-identical output).
+          required: true
+        - label: The proposal adds no telemetry, analytics, or outbound network calls.
+          required: true
+        - label: The proposal does not require a new runtime dependency that the Node.js standard library could replace.
+          required: false
+        - label: I am willing to discuss narrowing the proposal if maintainers think it is too broad.
+          required: true

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.dobo123123/dobocache",
+  "title": "DoboCache",
+  "description": "MCP server that stabilizes prompt prefixes to raise LLM prompt-cache hit rate. NOTE: the npm package 'dobocache' referenced below is the intended publish target and is NOT yet on the npm registry; until it is published, install from the portable zip attached to the GitHub release.",
+  "version": "0.4.7",
+  "websiteUrl": "https://github.com/dobo123123/dobocache",
+  "repository": {
+    "url": "https://github.com/dobo123123/dobocache",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "dobocache",
+      "version": "0.4.7",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "node",
+      "environmentVariables": [
+        {
+          "name": "DOBOCACHE_LOG_DIR",
+          "description": "Directory for the local white-box JSONL log. Absolute path recommended. Optional; defaults to the platform log directory: %LOCALAPPDATA%\\DoboCache\\logs on Windows, ~/Library/Logs/DoboCache on macOS, $XDG_STATE_HOME/dobocache (fallback ~/.local/state/dobocache) on Linux.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DOBOCACHE_WHITEBOX",
+          "description": "White-box report card mode: quiet (default, no card in tool output, log only), once (one card next call, then back to quiet), always (card on every call, ~300+ tokens each). Unrecognized values fall back to quiet with a warning. Cumulative stats are always available via cf_report at no token cost.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DOBOCACHE_HIT_PRICE_PER_M",
+          "description": "Optional price per million tokens for cache-hit tokens used in savings estimates.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DOBOCACHE_MISS_PRICE_PER_M",
+          "description": "Optional price per million tokens for cache-miss tokens used in savings estimates.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

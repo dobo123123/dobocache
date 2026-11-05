@@ -1,0 +1,81 @@
+name: CI
+
+# Cross-platform continuous integration.
+# Runs install + type-check + lint + full unit tests on Windows, Linux and macOS,
+# plus an MCP stdio handshake smoke test on Linux and macOS so real-platform
+# behavior is verified on every push.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 让 npm / node 输出更稳定，避免 CI 日志噪声
+  NPM_CONFIG_FUND: "false"
+  NPM_CONFIG_AUDIT: "false"
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # macOS 托管 runner 在本仓曾长期排不到机器（run 41858839250 / 41870257274 均排队
+    # 约 15 分钟后被平台取消，runner_id 全程为 null），把整体 run 拖成 failure。
+    # 因此 macOS 仅作非阻塞补充验证：它失败不使 workflow 失败，但仍照常发车与报告。
+    # 反例留档：run 41893788049 的 macOS job 实际分配到 runner 并 19 秒全绿，
+    # 说明是「排队资源紧张 + 排队超时被取消」，不是平台不可用，故保留矩阵项而非移除。
+    # macOS 真机验证缺口已在 README / 兼容性说明中如实披露。
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    # 原 20 分钟：macOS 排队被取消也要拖满 15 分钟，整体耗时过长；收紧到 12 分钟。
+    # 实测正常跑完全流程 windows 39s / ubuntu 25s / macos 19s，12 分钟余量充足。
+    timeout-minutes: 12
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: 安装依赖（严格按 package-lock）
+        run: npm ci
+
+      - name: 类型编译（tsc）
+        run: npm run build
+
+      - name: 代码检查（eslint）
+        run: npm run lint
+
+      - name: 全量单元测试（vitest）
+        run: npm test
+
+      # 非 Windows 平台额外验证：
+      #   1) MCP stdio 握手：initialize 返回 serverInfo(dobocache) + tools/list 恰好 9 个工具
+      #   2) 日志目录解析：macOS 必须落在 ~/Library/Logs/DoboCache，Linux 必须落在 $XDG_STATE_HOME/dobocache
+      #      且 cf_report 返回的 logDirSource 必须为 platform（证明走平台分支，不是 cwd 回退）
+      - name: MCP 握手冒烟 + 日志目录断言（Linux / macOS）
+        if: runner.os != 'Windows'
+        run: node scripts/ci-mcp-smoke.mjs
+
+      - name: 上传冒烟失败现场（仅失败时）
+        if: failure() && runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-smoke-trace-${{ matrix.os }}
+          path: ci-smoke-artifacts/**
+          if-no-files-found: ignore
+          retention-days: 7

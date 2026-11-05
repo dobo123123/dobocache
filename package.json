@@ -1,0 +1,85 @@
+{
+  "name": "dobocache",
+  "version": "0.4.7",
+  "description": "DoboCache — MCP Server for LLM cache hit optimization: hit judgment, value-tier admission, memory injection, measurement. White-box: per-call report + cf_report cumulative stats.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "dobocache": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "SECURITY.md",
+    "server.json",
+    "release/README.zh.md",
+    "release/README.en.md",
+    "release/零基础三分钟上手.md",
+    "release/FAQ-使用须知.md",
+    "release/兼容性说明.md",
+    "assets/",
+    "release/testdata/",
+    "release/scripts/",
+    "scripts/check-docs.mjs",
+    "scripts/ci-mcp-smoke.mjs",
+    "release/hitrate-comparison.png",
+    "release/hitrate-comparison-platforms.png"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "check:docs": "node scripts/check-docs.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "cache",
+    "llm",
+    "prompt-caching",
+    "context",
+    "mcp-server",
+    "model-context-protocol",
+    "prompt-cache",
+    "context-engineering",
+    "token-optimization"
+  ],
+  "license": "Apache-2.0",
+  "author": {
+    "name": "dobo123123",
+    "url": "https://github.com/dobo123123"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^2.0.0"
+  },
+  "mcpName": "io.github.dobo123123/dobocache",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dobo123123/dobocache.git"
+  },
+  "homepage": "https://github.com/dobo123123/dobocache",
+  "bugs": {
+    "url": "https://github.com/dobo123123/dobocache/issues"
+  }
+}
