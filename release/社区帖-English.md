@@ -1,5 +1,7 @@
 # Show: a local MCP proxy that keeps your prompt prefix stable, and logs every step
 
+**Repo:** https://github.com/dobo123123/dobocache · **Release v0.4.7:** https://github.com/dobo123123/dobocache/releases/tag/v0.4.7 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
+
 *An open-source, fully local MCP server for coding CLIs / agent clients. No network calls, no telemetry, no sign-up.*
 
 **TL;DR** — Prompt caching only pays off if your request prefix is byte-identical across requests. Mine almost never was. This tool rebuilds the prefix, aligns it to cache block boundaries, and writes a whitebox log of exactly what it changed. 20-request A/B: control group 0.00% cache hit (20/20 requests at zero), test group mean 98.59% (range 96.08%–99.79%, 0/20 requests at zero).
@@ -89,6 +91,8 @@ One JSONL record per `cf_inject`, sanitized:
 }
 ```
 
+*(`detail` strings are emitted in Chinese by the tool itself; left verbatim.)*
+
 This is more useful than the headline number: when something breaks you can see *which* step didn't fire, what the threshold was, and how many blocks were padded.
 
 ## 5. v0.4.4 → v0.4.7: privacy, then honesty about numbers
@@ -158,6 +162,8 @@ The hard part isn't the caching technique — it's that **you have no idea wheth
 
 Counter-examples welcome. If your control group hits heavily *without* noise injection, or your prefix stability is far worse than this, that's genuinely useful data.
 
-**Want to try it?** The step-by-step setup guide (Chinese, beginner level) is `零基础三分钟上手.md` in the repo root — six steps from installing Node to verifying success. If you hit an error, the [FAQ troubleshooting section](FAQ-使用须知.md) lists 13 common install failures indexed by the exact error message.
+**Want to try it?** The step-by-step setup guide (Chinese, beginner level, `零基础三分钟上手.md`) lives in [`release/`](https://github.com/dobo123123/dobocache/tree/main/release) — six steps from installing Node to verifying success. If you hit an error, the FAQ section there lists 13 common install failures indexed by the exact error message.
+
+Direct download: [dobocache-v0.4.7-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.4.7/dobocache-v0.4.7-portable.zip) (~6.4 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
 
 *Generated with AI assistance; for reference only.*
