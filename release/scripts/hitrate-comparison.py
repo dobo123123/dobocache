@@ -10,7 +10,7 @@ DoboCache 命中率对照图生成脚本（多请求端形态版 / v0.4.7 公开
   1. testdata/hitrate-testdata-20261103.csv
      列：round,text_type,raw_tokens,opt_tokens,hit_rate,saved_tokens,platform
      = 组 8（v0.4.3，常见编码 CLI + 厂商 G），实验组逐次请求；同组对照组 20/20 次为 0 命中
-  2. testdata/hitrate-testdata-glm-v042-20261103.csv
+  2. testdata/hitrate-testdata-group7-v042-20261103.csv
      列：round,baseline_hit_rate,opt_hit_rate,baseline_note
      = 组 7（v0.4.2 候选修复构建，同形态），对照组有 2 次自然命中（R10 / R20）
   3. testdata/hitrate-multi-platform-summary-20261105.csv
@@ -51,7 +51,7 @@ setup_font()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # release/
 TD_DIR = os.path.join(BASE_DIR, "testdata")
 CSV_G8 = os.path.join(TD_DIR, "hitrate-testdata-20261103.csv")
-CSV_G7 = os.path.join(TD_DIR, "hitrate-testdata-glm-v042-20261103.csv")
+CSV_G7 = os.path.join(TD_DIR, "hitrate-testdata-group7-v042-20261103.csv")
 CSV_FORM = os.path.join(TD_DIR, "hitrate-multi-platform-summary-20261105.csv")
 OUT_MAIN = os.path.join(BASE_DIR, "hitrate-comparison.png")
 OUT_FORM = os.path.join(BASE_DIR, "hitrate-comparison-platforms.png")
@@ -181,7 +181,7 @@ def fig_main():
               columnspacing=1.4, handlelength=2.4)
 
     note1 = ("数据来源：testdata/hitrate-testdata-20261103.csv（v0.4.3 实验组逐次）＋"
-             "testdata/hitrate-testdata-glm-v042-20261103.csv（v0.4.2 候选构建逐次）＋ 同期对照组实测")
+             "testdata/hitrate-testdata-group7-v042-20261103.csv（v0.4.2 候选构建逐次）＋ 同期对照组实测")
     note2 = (f"v0.4.3：20/20 次前缀就绪（prefixReady=true），均值 {mean8:.2f}%，区间 {lo8:.2f}%–{hi8:.2f}%，"
              f"无一次 0 命中；对照组 20/20 次为 0")
     note3 = ("v0.4.2 候选构建的 3 次低值（R9/R13/R16）为厂商侧缓存窗口抖动，非配置差异；"

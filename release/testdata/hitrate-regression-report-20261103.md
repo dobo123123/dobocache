@@ -177,7 +177,7 @@ v0.4.2 正式包有一个"改了等于没改"的 bug：程序算出了补足前�
 | 文件 | 说明 |
 |---|---|
 | `hitrate-testdata-20261103.csv` | 组 8（v0.4.3）20 次请求 CSV，列 `round,text_type,raw_tokens,opt_tokens,hit_rate,saved_tokens,platform`，`platform=cli/vendor-G` |
-| `hitrate-testdata-glm-v042-20261103.csv` | 组 7（v0.4.2 候选修复构建）20 次请求 CSV，列 `round,baseline_hit_rate,opt_hit_rate,baseline_note`，含对照组逐次值 |
+| `hitrate-testdata-group7-v042-20261103.csv` | 组 7（v0.4.2 候选修复构建）20 次请求 CSV，列 `round,baseline_hit_rate,opt_hit_rate,baseline_note`，含对照组逐次值 |
 | `hitrate-multi-platform-summary-20261105.csv` | 跨请求端形态汇总 CSV（形态 A/B/C × 两版本），支撑第八节与 `hitrate-comparison-platforms.png` |
 | `hitrate-regression-report-20261103.md` | 本报告 |
 | `hitrate-task-inventory-20261103.md` | 历次测试任务清单（公开随附文档） |

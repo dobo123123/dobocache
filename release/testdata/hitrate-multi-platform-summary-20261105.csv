@@ -3,5 +3,5 @@ A,白盒引擎直连（内置底座）,20,v0.4.0,0.00,93.09,cumulative,031,0,288
 A,白盒引擎直连（内置底座）,20,v0.4.2,0.00,91.89,cumulative,032,0,28888,44288,48198,EXPERIMENT-LOG 实验 032
 B,官方 Harness headless（厂商 D 请求端）,20,v0.4.0,66.00,96.85,cumulative,033,51200,77576,106614,110077,EXPERIMENT-LOG 实验 033
 B,官方 Harness headless（厂商 D 请求端）,20,v0.4.2,68.09,95.91,cumulative,034,56320,82710,92800,96753,EXPERIMENT-LOG 实验 034
-C,常见编码 CLI（厂商 G 请求端）,20,v0.4.2 候选修复构建,9.87,90.58,round_mean,group-7,,,,,hitrate-testdata-glm-v042-20261103.csv
+C,常见编码 CLI（厂商 G 请求端）,20,v0.4.2 候选修复构建,9.87,90.58,round_mean,group-7,,,,,hitrate-testdata-group7-v042-20261103.csv
 C,常见编码 CLI（厂商 G 请求端）,20,v0.4.3,0.00,98.59,round_mean,group-8,,,,,hitrate-testdata-20261103.csv

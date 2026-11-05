@@ -32,7 +32,7 @@
 19. `check-docs` 新增第 8 条校验：对外文档不得夹带非内容性元数据标签（编号、追踪标识、校验串一类）；发布包自检脚本加入同一规则，避免复制粘贴时被整段带入。
 20. `package.json` 的 `files` 白名单补齐 `scripts/ci-mcp-smoke.mjs`：此前便携包含该冒烟脚本、npm 包内缺失，从 registry 安装的用户拿不到自检手段。
 21. 统一术语与命名口径：全仓表述中性化，实验材料使用语义化文件名与记录编号；打包自检脚本同步扩展扫描规则，避免同类命名回流。
-22. 随附对照图升级为多形态：新增跨请求端形态汇总 CSV `release/testdata/hitrate-multi-platform-summary-20261105.csv` 与组 7 逐次数据 `release/testdata/hitrate-testdata-glm-v042-20261103.csv`（含对照组逐次值）；`release/scripts/hitrate-comparison.py` 改为输出两张图——`hitrate-comparison.png`（同形态两版本逐次曲线，含两条对照组）与 `hitrate-comparison-platforms.png`（白盒直连 / 官方 Harness headless / 编码 CLI 三种形态汇总）；三份 README、两版社区帖、回归报告与 testdata 说明同步补入「不挂载并不总是 0%（约 0%–68%，随请求端形态浮动），挂载后 90%–98%」的实测表格，并明确跨形态对照值不可互比。
+22. 随附对照图升级为多形态：新增跨请求端形态汇总 CSV `release/testdata/hitrate-multi-platform-summary-20261105.csv` 与组 7 逐次数据 `release/testdata/hitrate-testdata-group7-v042-20261103.csv`（含对照组逐次值）；`release/scripts/hitrate-comparison.py` 改为输出两张图——`hitrate-comparison.png`（同形态两版本逐次曲线，含两条对照组）与 `hitrate-comparison-platforms.png`（白盒直连 / 官方 Harness headless / 编码 CLI 三种形态汇总）；三份 README、两版社区帖、回归报告与 testdata 说明同步补入「不挂载并不总是 0%（约 0%–68%，随请求端形态浮动），挂载后 90%–98%」的实测表格，并明确跨形态对照值不可互比。
 
 ### 验收
 23. 单元测试 **95 / 95 通过**（89 → 95，新增 6 条：轮转与副本上限、保留期清理与「非本模块文件不动」、清理门闩与 `force`、读盘聚合（跨文件 / 已判定口径 / 坏行）、空目录不伪造 0%、报告署名行位置与版本一致）。
@@ -52,6 +52,11 @@
 - 落地位置：主 README / `release/README.zh.md` / `release/README.en.md`（跨形态表前新增「三个请求端分别是谁」对照小节，A 行说明改为「自研白盒底座，未做任何前缀处理（结构性零基线）」）；`release/testdata/README.md` 口径说明新增第 5 条；`release/testdata/hitrate-regression-report-20261103.md` 第八节判读补为首条；`release/testdata/复跑说明.md` 跨形态读图注意；`release/FAQ-使用须知.md` 第五节；中英文社区帖各补一段。
 - `release/scripts/hitrate-comparison.py` 图 2 新增两行红色脚注讲清根因，形态 A 分组标注补「（自研底座，无前缀处理）」，并重绘 `assets/hitrate-comparison-platforms.png` 与 `release/hitrate-comparison-platforms.png`。
 - 口径不变：不挂载约 0%–68%（随请求端形态浮动），挂载后 90%–98%；跨形态不可相减，仅同形态内「挂 vs 不挂」可比。
+
+### 实验材料文件名中性化（同版本追加）
+- 组 7 逐次数据此前文件名带模型系列标识，与「实验材料只用语义化文件名」的口径不一致；现更名为 `release/testdata/hitrate-testdata-group7-v042-20261103.csv`，数据内容与数值**零变化**。
+- 同步更新全部引用：本文件、`release/scripts/hitrate-comparison.py`（路径常量、注释、图注）、`release/testdata/README.md`、`release/testdata/复跑说明.md`、`release/testdata/hitrate-regression-report-20261103.md`、`release/testdata/hitrate-multi-platform-summary-20261105.csv` 的清单列。
+- 自查：全仓文件名与文本内均无模型系列标识残留；`check-docs` 8 份文档 0 ERROR / 0 WARN，`check` 脚本对文件名规则的扫描规则不变。
 
 ## v0.4.6（2026-11-04）— 白盒报告改为默认关闭、命中率「未判定」语义修正、序号字段更名
 
