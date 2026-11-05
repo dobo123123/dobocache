@@ -30,7 +30,7 @@ import {
 import { Meter } from "../src/core/meter.js";
 import { parseNodeMajor, checkNodeVersion, MIN_NODE_MAJOR } from "../src/utils/runtime.js";
 import { platformLogDir, resolveLogDir } from "../src/utils/logDir.js";
-import { WhiteboxLogger, detectDuplicateLines, formatReportCard, sanitizeForLog, resolveCardMode, CARD_MODE_ENV } from "../src/core/whitebox.js";
+import { WhiteboxLogger, detectDuplicateLines, formatReportCard, reportSignatureLine, REPORT_REPO_URL, sanitizeForLog, resolveCardMode, CARD_MODE_ENV } from "../src/core/whitebox.js";
 import { stableKey, stableStringify, estimateTokens, hashString } from "../src/utils/serialize.js";
 import { pruneToolOutput } from "../src/utils/prune.js";
 import { fingerprintPrompt, fingerprintSession, ensureRequestId, ensureSessionId } from "../src/utils/privacy.js";
@@ -775,6 +775,19 @@ describe("v0.4.1 白盒报告即时摘要卡片", () => {
     );
     expect(card).toContain("10,000");
     expect(card).toContain("备注");
+  });
+
+  it("formatReportCard 末尾带署名行（版本取自 package.json，指向仓库地址）", () => {
+    const card = formatReportCard(makeCard());
+    const lines = card.split("\n");
+    // 署名固定在最后一行，且报告正文与署名之间仍有一条分隔线
+    expect(lines[lines.length - 1]).toBe(reportSignatureLine());
+    expect(lines[lines.length - 2]).toMatch(/^─+$/);
+    expect(lines[lines.length - 1]).toContain("DoboCache v");
+    expect(lines[lines.length - 1]).toContain(REPORT_REPO_URL);
+    // 版本号从 package.json 读，避免升版本后署名与包版本脱节
+    const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf-8")) as { version: string };
+    expect(lines[lines.length - 1]).toContain(`v${pkg.version}`);
   });
 });
 

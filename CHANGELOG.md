@@ -35,11 +35,17 @@
 22. 随附对照图升级为多形态：新增跨请求端形态汇总 CSV `release/testdata/hitrate-multi-platform-summary-20261105.csv` 与组 7 逐次数据 `release/testdata/hitrate-testdata-glm-v042-20261103.csv`（含对照组逐次值）；`release/scripts/hitrate-comparison.py` 改为输出两张图——`hitrate-comparison.png`（同形态两版本逐次曲线，含两条对照组）与 `hitrate-comparison-platforms.png`（白盒直连 / 官方 Harness headless / 编码 CLI 三种形态汇总）；三份 README、两版社区帖、回归报告与 testdata 说明同步补入「不挂载并不总是 0%（约 0%–68%，随请求端形态浮动），挂载后 90%–98%」的实测表格，并明确跨形态对照值不可互比。
 
 ### 验收
-23. 单元测试 **94 / 94 通过**（89 → 94，新增 5 条：轮转与副本上限、保留期清理与「非本模块文件不动」、清理门闩与 `force`、读盘聚合（跨文件 / 已判定口径 / 坏行）、空目录不伪造 0%）。
+23. 单元测试 **95 / 95 通过**（89 → 95，新增 6 条：轮转与副本上限、保留期清理与「非本模块文件不动」、清理门闩与 `force`、读盘聚合（跨文件 / 已判定口径 / 坏行）、空目录不伪造 0%、报告署名行位置与版本一致）。
 24. `tsc --noEmit` 零报错；`eslint src test` 零告警；`check-docs` 8 份文档 0 ERROR / 0 WARN（十项校验）。
 25. MCP stdio 冒烟通过：`serverInfo.version = 0.4.7`、9 工具齐全、默认档位 `cf_judge` / `cf_inject` 返回只有一段 JSON 不含卡、`once` 仅首次附卡、`always` 每次附卡。
 26. 发布物复核：便携包与 npm tarball 各自独立全量扫描（凭据形态、本机路径、敏感用语、生成工具元数据、业务线索、地理与公司信息、会话标识）零命中；npm tarball 内 `scripts/check-docs.mjs` 与 `scripts/ci-mcp-smoke.mjs` 均存在。
 27. 发布物复核（补充）：对照图两张与新增两份 CSV 随包齐备，三份 README 引用的图片路径均存在（`assets/hitrate-comparison-platforms.png`、`release/hitrate-comparison-platforms.png`）；逐次数据可重绘复现，跨形态汇总值与实验档案一致。
+
+### 白盒报告署名（同版本追加）
+- 报告卡片（`formatReportCard`）末尾固定追加一行：`DoboCache v0.4.7 · 全本地生成 · github.com/dobo123123/dobocache`，让用户把报告贴到群里 / 贴进 issue 时出处与仓库地址跟着走。
+- 版本号由 `package.json` 用 `createRequire` 动态读取，升级版本无需再改代码；读取失败（非常规安装形态）静默回退常量，不抛错、不影响出卡。
+- 边界：只在对话里多一行（约 15 tokens/张，且卡片默认 `quiet` 不出），**不写入 JSONL 日志**、不联网、不上报，统计口径与缓存行为零变化；`cf_report` 返回结构未改。
+- 单测新增 1 条回归（署名固定在最后一行、与其上一条分隔线相邻、版本与 `package.json` 一致）。
 
 ## v0.4.6（2026-11-04）— 白盒报告改为默认关闭、命中率「未判定」语义修正、序号字段更名
 

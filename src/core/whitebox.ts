@@ -23,8 +23,37 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { ensureRequestId, ensureSessionId } from "../utils/privacy.js";
 import { resolveLogDir, type LogDirSource } from "../utils/logDir.js";
+
+/**
+ * 报告署名（v0.4.7+）
+ *
+ * 白盒报告尾部固定标注工具名 + 版本 + 仓库地址，让用户把报告贴到群里、贴进 issue 时
+ * 链接能跟着走。
+ *   - 版本从 package.json 动态读取，升级版本无需再改这里；读不到时回退常量（不抛错）；
+ *   - 只在报告文本里多一行，不联网、不上报，不改变任何统计口径与缓存行为；
+ *   - 署名行不写入 JSONL 日志（日志仍是纯数据，不带任何额外文本）。
+ */
+export const REPORT_REPO_URL = "github.com/dobo123123/dobocache";
+/** 读不到 package.json 时的兜底版本（与 package.json 手动保持一致即可） */
+const SIGNATURE_VERSION_FALLBACK = "0.4.7";
+const SIGNATURE_VERSION: string = (() => {
+  try {
+    const req = createRequire(import.meta.url);
+    const pkg = req("../../package.json") as { version?: string };
+    const v = typeof pkg.version === "string" ? pkg.version.trim() : "";
+    return v !== "" ? v : SIGNATURE_VERSION_FALLBACK;
+  } catch {
+    return SIGNATURE_VERSION_FALLBACK;
+  }
+})();
+
+/** 报告署名行文本（导出便于测试断言与文档引用） */
+export function reportSignatureLine(): string {
+  return `DoboCache v${SIGNATURE_VERSION} · 全本地生成 · ${REPORT_REPO_URL}`;
+}
 
 /** 单次变更明细条目 */
 export interface WhiteboxChange {
@@ -313,6 +342,7 @@ export function formatReportCard(report: SavingsReport): string {
     lines.push(`${label("备注")}: ${report.note}`);
   }
   lines.push("────────────────────────────────────────────────────");
+  lines.push(reportSignatureLine());
   return lines.join("\n");
 }
 
