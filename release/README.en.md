@@ -1,6 +1,6 @@
 # DoboCache v0.4.7
 
-> **Cache hits you can actually see — fewer tokens on the wire, and a white-box report for every step.**
+> **Cache hits you can see — and a white-box report for every step.**
 
 DoboCache is an **MCP server mounted over stdio**. It sits between your coding CLI / agent client and the model vendor's API, and turns each request's context into a **stable, reusable prefix that is automatically topped up when it falls below the vendor's minimum cache threshold**. Whether the cache hit, how much it hit, and what DoboCache changed along the way are all written to a local white-box log you can read at any time.
 
