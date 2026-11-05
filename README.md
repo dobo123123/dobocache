@@ -26,7 +26,7 @@ DoboCache 是纯 JavaScript 的 stdio MCP Server，包内**不含任何原生二
 
 | 平台 | 状态 | 验证到什么程度 |
 |---|---|---|
-| **Windows 10 / 11（x64）** | ✅ **主打平台，已真机验证** | 真机端到端跑通：本组实验 20 次连续请求对照（含真实 MCP 客户端挂载 + 厂商 usage 校验）、便携包解压即跑冒烟、全量 **94 项**测试通过、日志落盘实测 `%LOCALAPPDATA%\DoboCache\logs` |
+| **Windows 10 / 11（x64）** | ✅ **主打平台，已真机验证** | 真机端到端跑通：本组实验 20 次连续请求对照（含真实 MCP 客户端挂载 + 厂商 usage 校验）、便携包解压即跑冒烟、全量 **95 项**测试通过、日志落盘实测 `%LOCALAPPDATA%\DoboCache\logs` |
 | **Linux（x86_64）** | 🟡 **容器环境已实测**（非桌面真机） | 2026-11-04 在 Docker `linux/amd64` + Node 官方 Linux 镜像内对发布包做真实运行：解压即跑、`initialize`/`tools/list` 返回合法、9 个工具全在、`cf_judge` 命中、`cf_inject` 返回 `prefixReady=true`、日志按 `~/.local/state/dobocache` 落盘、`XDG_STATE_HOME` 生效、`DOBOCACHE_LOG_DIR` 优先级最高、只读目录降级不崩溃、Node 16 自检 `exit 1`。**桌面 Linux 真机 + 图形客户端挂载、arm64 仍未验证**（细节见 [`兼容性说明.md`](release/兼容性说明.md) 附录 A） |
 | **macOS（Intel / Apple Silicon）** | ⚠️ **未真机验证**（预期可用） | 仅有**单元测试覆盖**：`~/Library/Logs/DoboCache` 路径解析及上述同批用例。**没有在真实 Mac 上跑过完整链路** |
 
@@ -88,7 +88,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 | 本版新增 | ① **日志有了边界**：单文件到 10MB 滚动为 `.1`、最多 3 份副本，超 7 天的旧日志在当天首次写盘时清理（`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调）；清理只认本模块命名，同目录你自己的文件一个都不动，失败静默跳过，`cf_report` 的 `logPolicy` / `logMaintenance` 可自查；② **`cf_report` 支持 `source="disk"`**：改为从本地日志重新聚合（`days=<n>` 限定窗口），MCP 客户端重启后历史数据不再归零；口径与内存态一致（`hitRate` 只对已判定行求均值，无判定仍返回 `null`），坏行计入 `skippedLines` 不中断聚合；③ **`cf_prune` 说清**：它只修剪调用时传入的 `text`，不读取、不删除磁盘上任何文件，尤其不会删白盒日志 |
 | 命中相关代码 | 缓存核心（前缀冻结 / 对齐 / 分级准入 / 判定逻辑）与 v0.4.4 一致，本版不动算法；默认档位下 `cf_judge` / `cf_inject` 返回**只有一段 JSON、不含卡片** |
 | 冒烟验证 | MCP stdio 冒烟通过：`serverInfo.version = 0.4.7`、9 工具齐全、默认档位无卡片、`once` 仅首次附卡、`always` 每次附卡、`cf_report.cardMode` 与设置一致 |
-| 测试 | **94 / 94 通过**；`tsc --noEmit` 零报错；`eslint src test` 零告警 |
+| 测试 | **95 / 95 通过**；`tsc --noEmit` 零报错；`eslint src test` 零告警 |
 | 平台验证 | **Windows 真机端到端已验证**；**Linux 已在 `linux/amd64` 容器内实测运行**（协议链路 / 9 工具 / 日志分支 / 只读降级 / Node 版本自检，见「平台支持状态」与 `release/兼容性说明.md`）；macOS 仅单元测试覆盖，**未真机运行** |
 | **不宣称** | 本版**不是性能提升版**。命中率与 v0.4.4 相同，请勿把本文任何数字读成「新版本更高」 |
 

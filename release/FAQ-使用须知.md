@@ -153,7 +153,7 @@ README 里出现的 `npx` 写法是上架后的预留写法，现在还不可用
 
 | 平台 | 状态 | 说明 |
 |---|---|---|
-| Windows 10 / 11（x64） | ✅ 主打，已真机验证 | 本组实验 20 次连续请求真机对照、便携包解压即跑、94 项测试全通、日志落盘实测 |
+| Windows 10 / 11（x64） | ✅ 主打，已真机验证 | 本组实验 20 次连续请求真机对照、便携包解压即跑、95 项测试全通、日志落盘实测 |
 | Linux（x86_64） | 🟡 容器环境已实测 | 2026-11-04 Docker `linux/amd64` + Node 官方镜像：解压即跑、`initialize`/`tools/list` 合法、9 工具可用、日志 `~/.local/state/dobocache` 落盘、`XDG_STATE_HOME` 与 `DOBOCACHE_LOG_DIR` 优先级正确、只读目录降级不崩溃、Node 16 自检 `exit 1`；桌面真机 + 图形客户端挂载、arm64 未验证 |
 | macOS（Intel / Apple Silicon） | ⚠️ 未真机验证 | 只有单元测试覆盖 `~/Library/Logs/DoboCache` 及同批用例 |
 
