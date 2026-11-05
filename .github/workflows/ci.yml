@@ -63,6 +63,10 @@ jobs:
       - name: 全量单元测试（vitest）
         run: npm test
 
+      # 文档一致性：版本号 / 结构 / 链接 / 对外元数据口径，任一漂移即失败
+      - name: 文档一致性校验（check-docs）
+        run: node scripts/check-docs.mjs
+
       # 非 Windows 平台额外验证：
       #   1) MCP stdio 握手：initialize 返回 serverInfo(dobocache) + tools/list 恰好 9 个工具
       #   2) 日志目录解析：macOS 必须落在 ~/Library/Logs/DoboCache，Linux 必须落在 $XDG_STATE_HOME/dobocache

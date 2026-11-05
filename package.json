@@ -1,7 +1,7 @@
 {
   "name": "dobocache",
   "version": "0.4.7",
-  "description": "DoboCache — MCP Server for LLM cache hit optimization: hit judgment, value-tier admission, memory injection, measurement. White-box: per-call report + cf_report cumulative stats.",
+  "description": "MCP server for LLM prompt-cache observability: stable prefix construction, value-tier admission, prefix-alignment checks, and a per-call white-box report. Fully local, no telemetry.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
