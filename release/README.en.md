@@ -142,6 +142,17 @@ Three points to read:
 3. **Once mounted, all three forms land at 90%–98%**, which shows static prefix reuse is independent of the requesting-side form rather than a quirk of one client.
 4. **A caveat on the denominator, which matters more than the numbers**: forms A / B are reported on an **aggregate basis over the 20 requests** (total cached tokens ÷ total prompt tokens), while form C is the **mean of the 20 per-request hit rates** — two different estimators, so compare orders of magnitude across forms, never add or subtract their percentages. Only "mounted vs not mounted" inside the same form is same-basis.
 
+**A closer look at the COD-X pair (groups 7 and 8) — this is the cell most likely to be misread:**
+
+Both runs share the same form, the same 20-request task set and the same control-arm construction (a *different* random-noise marker injected at the head of every control request, deliberately drifting the prefix); the only difference is the mounted version. The control arm mounts nothing, so it is independent of the version — the gap between "9.87% (group 7)" and "0.00% (group 8)" is **not** "newer version, worse baseline", it is the randomness of the injected noise:
+
+- In group 7, requests R10 and R20 came after 10 and 19 rounds of accumulated history. The long-history prefix was long enough for the provider-side cache to match on its own, so those two requests read **99.27% / 98.10%**; the other 18 were broken up by the noise and read 0, which averages out to 9.87% over 20 requests;
+- In group 8, the noise broke the prefix on all 20 requests, so every reading was 0 and the mean is 0.00%.
+
+**Read the other way round, these two figures prove something that is *not* to this tool's credit: the provider's built-in cache is already good — as long as the prefix stays stable it can hit close to 99%.** Prefix stability is the only bottleneck throughout. What DoboCache does is make the prefix stable and keep it stable on every request; it does not conjure hits out of nothing. So "0%–9.87% unmounted" is a reading under **stress conditions** — it does not mean "the provider's cache is bad", and it must not be read as "mount it and you gain 98 points".
+
+Group 7's mounted mean of 90.58% has the same explanation: R9, R13 and R16 hit provider-side jitter (53.08% / 85.53% / 0.00%). Excluding those three, the remaining 17 average **98.41%**, only 0.16pp from group 8's 98.57% on the same basis — the two versions agree on the stable segment, so there is no "8-point gain from the upgrade". Per-request comparison: `testdata/hitrate-regression-report-20261103.md`, section 6.
+
 Unified reading: **not mounted ≈ 0%–68% (form-dependent), mounted 90%–98%.** Every row above maps to a recorded run (experiments 031 / 032 / 033 / 034 and groups 7 / 8) and to the `source_exp` / `recompute_file` fields of the summary CSV: `testdata/hitrate-multi-platform-summary-20261105.csv` — for forms A / B the numerators and denominators ship as token columns in the same row, while form C is a per-request mean whose per-request files sit in the same folder, so any cell can be recomputed. Per-request charts and the replot script: `scripts/hitrate-comparison.py`. No cell in this table is an estimate or a rounded-up guess.
 
 ### On the size of this test set: an honest note
