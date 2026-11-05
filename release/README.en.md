@@ -113,11 +113,22 @@ How to read this — all three points matter together:
 
 **Zoom out one level: not-mounted is not always 0%.** The hit rate is not decided by "mounted or not" alone — how the requesting side builds its requests sets the control arm's starting point. The same mounting logic was run for 20 requests under three requesting-side forms:
 
+**First, what each requesting side actually is — this is the whole reason the control baselines differ:**
+
+| Form | Who the requesting side is | Does it do any prefix handling itself? | Why the control arm reads what it reads |
+|---|---|---|---|
+| A Whitebox engine, direct | **DoboCache's own whitebox test base** — a direct client we wrote ourselves for these experiments, not any official client | **No, none at all**: no prefix construction, no cache warm-up, no session reuse; each round sends only "task text + random noise" | 0 / 28,846 tokens over 20 requests. With nothing reusable in hand, the baseline is structurally **0.00%** — a **structural zero baseline**, not a cache that "collapsed" |
+| B Official Harness, headless | Vendor D's official client (headless mode) | **Yes, guaranteed by both client and provider**: every new session carries ~2,560 tokens of provider-side global system prefix | 51,200 / 77,576 tokens over 20 requests = **66.00%**; 51,200 is exactly 2,560 × 20, so you can verify that all of that 66% comes from the official prefix and owes nothing to DoboCache |
+| C Common coding CLI | A commercial coding client (vendor G side) | **Not fixed**: no global system prefix; hits only when long-history prefixes happen to stay stable | Group 8: zero on all 20; group 7: only R10 / R20 hit naturally, per-request mean 9.87% |
+
+In one sentence: **A's 0% means "this client has no prefix to hit in the first place" (our own base, deliberately doing nothing, used to measure a zero baseline); B's 66% means "the official client already has a prefix underneath". Neither figure is a DoboCache result.** Both starting points say the same thing: the control arm's height is set by **how much prefix handling the requesting side does itself**. Read this table horizontally, "mounted vs not mounted" within one form — never vertically as "whose control arm is higher", and never subtract percentages across forms to claim a gain.
+
+
 ![Three requesting-side forms: not mounted vs mounted](hitrate-comparison-platforms.png)
 
 | Requesting-side form | Version · source run | Control (not mounted) | Mounted (DoboCache) | Notes |
 |---|---|---|---|---|
-| A Whitebox engine, direct | v0.4.0 · exp 031 | 0.00% | 93.09% | The requesting side offers no native prefix reuse |
+| A Whitebox engine, direct | v0.4.0 · exp 031 | 0.00% | 93.09% | Our own whitebox base, no prefix handling at all (structural zero baseline) |
 | A Whitebox engine, direct | v0.4.2 · exp 032 | 0.00% | 91.89% | Same |
 | B Official Harness, headless | v0.4.0 · exp 033 | 66.00% | 96.85% | The requesting side ships ~2,560 tokens of global system-prefix cache; the control arm degrades 84.27% → 54.54% as noise accumulates |
 | B Official Harness, headless | v0.4.2 · exp 034 | 68.09% | 95.91% | Control baseline comes from the same provider-side system-prefix cache; the mounted arm holds per-round misses down to 135–426 tokens |

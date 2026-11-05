@@ -208,7 +208,7 @@ def fig_forms():
     xs = list(range(len(rows)))
     w = 0.36
 
-    fig, ax = plt.subplots(figsize=(15, 8.2), dpi=120)
+    fig, ax = plt.subplots(figsize=(15, 9.0), dpi=120)
     fig.patch.set_facecolor("white")
     ax.set_facecolor("#f7f8fa")
 
@@ -237,7 +237,7 @@ def fig_forms():
         right = max(idx) + 0.48
         ax.axvspan(left, right, color="#e9edf5" if code in ("A", "C") else "#eef3ec",
                    alpha=0.55, zorder=0)
-        ax.annotate({"A": "形态 A · 白盒引擎直连", "B": "形态 B · 官方 Harness headless",
+        ax.annotate({"A": "形态 A · 白盒引擎直连（自研底座，无前缀处理）", "B": "形态 B · 官方 Harness headless",
                      "C": "形态 C · 常见编码 CLI"}[code],
                     xy=((left + right) / 2, 106), ha="center", fontsize=11.5,
                     color="#333333", fontweight="bold")
@@ -256,19 +256,22 @@ def fig_forms():
     ax.legend(loc="upper left", fontsize=10.5, framealpha=0.96, ncol=2)
 
     note1 = ("数据来源：testdata/hitrate-multi-platform-summary-20261105.csv（数值回溯 EXPERIMENT-LOG 实验 031/032/033/034 与组 7/组 8 实测记录）")
-    note2 = ("重要：不同请求端形态的对照组基线不可互比——形态 A 为白盒直连、对照组恒 0；"
-             "形态 B 的请求端自带全局系统前缀，对照组基线天然在 66%–68%；形态 C 对照组 18/20 次为 0、"
-             "R10/R20 偶发自然命中，故 20 次均值为 9.87%。")
+    note2a = ("对照基线根因（这两条的差别不是本方案的功劳）：形态 A 的请求端是 DoboCache 自研的白盒测试底座，"
+              "不做任何前缀处理（不构造前缀 / 不预热缓存 / 不复用会话），请求端无可复用前缀，对照组为结构性零基线 0%；")
+    note2b = ("形态 B 的请求端是厂商 D 官方客户端 headless，每次新会话自带约 2,560 tokens 厂商全局系统前缀"
+              "（实验 033 累计命中 51,200 = 2,560×20），对照组基线天然 66%–68%，与 DoboCache 无关；"
+              "形态 C 无固定系统前缀，仅 R10/R20 长历史前缀自然命中，故逐次均值 9.87%。")
     note3 = ("口径：形态 A/B 用 20 次请求累计命中率（累计 hit / 累计 prompt）；形态 C 用逐次请求命中率均值。"
              "命中率＝cached_tokens / prompt_tokens。")
     note4 = "结论口径：不挂载约 0%–68%（随请求端形态浮动），挂载后 90%–98%；本图不宣称跨形态的提升幅度。"
-    ax.text(0.005, -0.105, note1, transform=ax.transAxes, fontsize=8.6, color="#555555")
-    ax.text(0.005, -0.148, note2, transform=ax.transAxes, fontsize=8.6, color="#8f1f16")
-    ax.text(0.005, -0.191, note3, transform=ax.transAxes, fontsize=8.6, color="#555555")
-    ax.text(0.005, -0.234, note4, transform=ax.transAxes, fontsize=8.6, color="#1b4fc4",
+    ax.text(0.005, -0.100, note1, transform=ax.transAxes, fontsize=8.4, color="#555555")
+    ax.text(0.005, -0.138, note2a, transform=ax.transAxes, fontsize=8.4, color="#8f1f16")
+    ax.text(0.005, -0.176, note2b, transform=ax.transAxes, fontsize=8.4, color="#8f1f16")
+    ax.text(0.005, -0.214, note3, transform=ax.transAxes, fontsize=8.4, color="#555555")
+    ax.text(0.005, -0.252, note4, transform=ax.transAxes, fontsize=8.4, color="#1b4fc4",
             fontweight="bold")
 
-    plt.tight_layout(rect=[0, 0.14, 1, 1])
+    plt.tight_layout(rect=[0, 0.17, 1, 1])
     fig.savefig(OUT_FORM, dpi=120, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print("saved:", OUT_FORM)

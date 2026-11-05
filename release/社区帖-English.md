@@ -58,7 +58,9 @@ Not a theoretical concern. I ran the same mounting logic for 20 requests under t
 | Official Harness, headless | v0.4.0 (033) / v0.4.2 (034) | 66.00% / 68.09% | 96.85% / 95.91% |
 | Common coding CLI | v0.4.2 candidate (group 7) / v0.4.3 (group 8) | 9.87% / 0.00% | 90.58% / 98.59% |
 
-The "official Harness" form ships ~2,560 tokens of provider-side global system-prefix cache per new session, so its control arm sits at 66%–68% for free. But don't envy it: in the v0.4.0 batch that arm degraded from 84.27% down to 54.54% as request noise accumulated — just as fragile, only starting higher.
+The "whitebox engine, direct" rows sit at 0% for a reason worth stating plainly: **that client is a whitebox test base I wrote myself** (not any official client), and **it deliberately does no prefix handling at all** — no prefix construction, no cache warm-up, no session reuse; each round sends only "task text + random noise". With no reusable prefix on hand, zero is the only possible reading. It is a **structural zero baseline**, not evidence that a provider's cache collapsed.
+
+The "official Harness" form ships ~2,560 tokens of provider-side global system-prefix cache per new session, so its control arm sits at 66%–68% for free (exp 033: 51,200 cached tokens = 2,560 × 20 — divide it yourself; the whole 66% is the official prefix, nothing to do with this plugin). But don't envy it: in the v0.4.0 batch that arm degraded from 84.27% down to 54.54% as request noise accumulated — just as fragile, only starting higher.
 
 So the accurate statement is: **not mounted ≈ 0%–68% (form-dependent); mounted 90%–98%.** Cross-form control values are not comparable — only "mounted vs not mounted" within the same form is. (Basis note: the A/B rows are aggregate over the 20 requests, the C rows are the mean of per-request rates — different estimators, so read them as magnitudes only. Every cell maps to a row of the shipped `testdata/hitrate-multi-platform-summary-20261105.csv` via its `source_exp` field, numerators and denominators included — recompute it yourself.)
 
