@@ -93,7 +93,7 @@ Typical call: `cf_inject(reset=true, sessionId=<your-session>, minPrefixTokens=<
 
 This run: one progressive 20-request conversation. The requesting side was "a common coding CLI tool" wired to a provider referred to as vendor G; the whitebox engine mounted DoboCache over stdio MCP. Same machine, same model, same parameters — the only difference is mounted vs. not mounted.
 
-> **Two reading conventions, up front**: ① "Vendor D" / "Vendor G" and "a common coding CLI tool" are anonymous labels — we do not attach third-party product names to our measurements. ② Only **hit rates and relative ratios** are reported; no monetary amounts. Cost-related fields are relative values converted with the price coefficients described in section 6.
+> **Three reading conventions, up front**: ① "Vendor D" / "Vendor G" and "a common coding CLI tool" are anonymous labels — we do not attach third-party product names to our measurements. ② The three requesting sides are referred to by the codes **WBX** (self-built whitebox, direct) / **DXH** (official Harness, headless) / **COD-X** (common coding CLI); each code is an abbreviation of the requesting side's *type*, not of any specific product, and contains no third-party trademark. ③ Only **hit rates and relative ratios** are reported; no monetary amounts. Cost-related fields are relative values converted with the price coefficients described in section 6.
 
 ![Control vs. mounted hit rate](hitrate-comparison.png)
 
@@ -117,9 +117,9 @@ How to read this — all three points matter together:
 
 | Form | Who the requesting side is | Does it do any prefix handling itself? | Why the control arm reads what it reads |
 |---|---|---|---|
-| A Whitebox engine, direct | **DoboCache's own whitebox test base** — a direct client we wrote ourselves for these experiments, not any official client | **No, none at all**: no prefix construction, no cache warm-up, no session reuse; each round sends only "task text + random noise" | 0 / 28,846 tokens over 20 requests. With nothing reusable in hand, the baseline is structurally **0.00%** — a **structural zero baseline**, not a cache that "collapsed" |
-| B Official Harness, headless | Vendor D's official client (headless mode) | **Yes, guaranteed by both client and provider**: every new session carries ~2,560 tokens of provider-side global system prefix | 51,200 / 77,576 tokens over 20 requests = **66.00%**; 51,200 is exactly 2,560 × 20, so you can verify that all of that 66% comes from the official prefix and owes nothing to DoboCache |
-| C Common coding CLI | A commercial coding client (vendor G side) | **Not fixed**: no global system prefix; hits only when long-history prefixes happen to stay stable | Group 8: zero on all 20; group 7: only R10 / R20 hit naturally, per-request mean 9.87% |
+| A · WBX whitebox self-built, direct | **DoboCache's own whitebox test base** — a direct client we wrote ourselves for these experiments, not any official client | **No, none at all**: no prefix construction, no cache warm-up, no session reuse; each round sends only "task text + random noise" | 0 / 28,846 tokens over 20 requests. With nothing reusable in hand, the baseline is structurally **0.00%** — a **structural zero baseline**, not a cache that "collapsed" |
+| B · DXH official Harness, headless | Vendor D's official client (headless mode) | **Yes, guaranteed by both client and provider**: every new session carries ~2,560 tokens of provider-side global system prefix | 51,200 / 77,576 tokens over 20 requests = **66.00%**; 51,200 is exactly 2,560 × 20, so you can verify that all of that 66% comes from the official prefix and owes nothing to DoboCache |
+| C · COD-X common coding CLI | A commercial coding client (vendor G side) | **Not fixed**: no global system prefix; hits only when long-history prefixes happen to stay stable | Group 8: zero on all 20; group 7: only R10 / R20 hit naturally, per-request mean 9.87% |
 
 In one sentence: **A's 0% means "this client has no prefix to hit in the first place" (our own base, deliberately doing nothing, used to measure a zero baseline); B's 66% means "the official client already has a prefix underneath". Neither figure is a DoboCache result.** Both starting points say the same thing: the control arm's height is set by **how much prefix handling the requesting side does itself**. Read this table horizontally, "mounted vs not mounted" within one form — never vertically as "whose control arm is higher", and never subtract percentages across forms to claim a gain.
 
@@ -128,12 +128,12 @@ In one sentence: **A's 0% means "this client has no prefix to hit in the first p
 
 | Requesting-side form | Version · source run | Control (not mounted) | Mounted (DoboCache) | Notes |
 |---|---|---|---|---|
-| A Whitebox engine, direct | v0.4.0 · exp 031 | 0.00% | 93.09% | Our own whitebox base, no prefix handling at all (structural zero baseline) |
-| A Whitebox engine, direct | v0.4.2 · exp 032 | 0.00% | 91.89% | Same |
-| B Official Harness, headless | v0.4.0 · exp 033 | 66.00% | 96.85% | The requesting side ships ~2,560 tokens of global system-prefix cache; the control arm degrades 84.27% → 54.54% as noise accumulates |
-| B Official Harness, headless | v0.4.2 · exp 034 | 68.09% | 95.91% | Control baseline comes from the same provider-side system-prefix cache; the mounted arm holds per-round misses down to 135–426 tokens |
-| C Common coding CLI (vendor G) | v0.4.2 candidate fix build · group 7 | 9.87% | 90.58% | Control arm measured zero on 18/20 requests; R10/R20 hit naturally via long-history prefixes |
-| C Common coding CLI (vendor G) | v0.4.3 · group 8 | 0.00% | 98.59% | The main dataset in the table above |
+| A · WBX whitebox self-built, direct | v0.4.0 · exp 031 | 0.00% | 93.09% | Our own whitebox base, no prefix handling at all (structural zero baseline) |
+| A · WBX whitebox self-built, direct | v0.4.2 · exp 032 | 0.00% | 91.89% | Same |
+| B · DXH official Harness, headless | v0.4.0 · exp 033 | 66.00% | 96.85% | The requesting side ships ~2,560 tokens of global system-prefix cache; the control arm degrades 84.27% → 54.54% as noise accumulates |
+| B · DXH official Harness, headless | v0.4.2 · exp 034 | 68.09% | 95.91% | Control baseline comes from the same provider-side system-prefix cache; the mounted arm holds per-round misses down to 135–426 tokens |
+| C · COD-X common coding CLI (vendor G) | v0.4.2 candidate fix build · group 7 | 9.87% | 90.58% | Control arm measured zero on 18/20 requests; R10/R20 hit naturally via long-history prefixes |
+| C · COD-X common coding CLI (vendor G) | v0.4.3 · group 8 | 0.00% | 98.59% | The main dataset in the table above |
 
 Three points to read:
 

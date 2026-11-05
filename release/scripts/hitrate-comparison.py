@@ -202,7 +202,8 @@ def fig_main():
 def fig_forms():
     """图2：跨请求端形态汇总（对照组 vs 实验组）"""
     rows = load_forms()
-    labels = [f"{r['label']}\n{r['version']}" for r in rows]
+    _CODE = {"A": "WBX", "B": "DXH", "C": "COD-X"}
+    labels = [f"{_CODE.get(r['code'], r['code'])} · {r['label']}\n{r['version']}" for r in rows]
     base = [r["base"] for r in rows]
     opt = [r["opt"] for r in rows]
     xs = list(range(len(rows)))
@@ -237,8 +238,9 @@ def fig_forms():
         right = max(idx) + 0.48
         ax.axvspan(left, right, color="#e9edf5" if code in ("A", "C") else "#eef3ec",
                    alpha=0.55, zorder=0)
-        ax.annotate({"A": "形态 A · 白盒引擎直连（自研底座，无前缀处理）", "B": "形态 B · 官方 Harness headless",
-                     "C": "形态 C · 常见编码 CLI"}[code],
+        ax.annotate({"A": "形态 A · WBX 白盒直连（自研底座，无前缀处理）",
+                     "B": "形态 B · DXH 官方 Harness headless",
+                     "C": "形态 C · COD-X 常见编码 CLI"}[code],
                     xy=((left + right) / 2, 106), ha="center", fontsize=11.5,
                     color="#333333", fontweight="bold")
 
@@ -248,8 +250,9 @@ def fig_forms():
     ax.set_yticks(range(0, 101, 20))
     ax.set_yticklabels([f"{v}%" for v in range(0, 101, 20)], fontsize=11)
     ax.set_ylabel("20 次请求整体缓存命中率（%）", fontsize=12)
-    ax.set_title("三种请求端形态对照：不挂载 vs 挂载 DoboCache（20 次请求 / 每组）",
-                 fontsize=16, fontweight="bold", pad=30)
+    ax.set_title("三种请求端形态对照：不挂载 vs 挂载 DoboCache（20 次请求 / 每组）\n"
+                 "WBX = 自研白盒直连 · DXH = 官方 Harness headless · COD-X = 常见编码 CLI（代号为类型缩写，不对应具体产品名）",
+                 fontsize=14.5, fontweight="bold", pad=26)
     ax.grid(axis="y", color="#d8dce2", linewidth=0.8, zorder=1)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)

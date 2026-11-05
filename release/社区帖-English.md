@@ -50,13 +50,13 @@ Two things I want to be precise about, because they're where this kind of experi
 
 **(a) The control group's zeros are engineered, not cherry-picked.** Every control request injects a *different* random noise marker at the head of the request, so the prefix drifts. Without that noise, the control group hits a substantial share of its own input — and then you're no longer comparing "with vs. without the tool", you're comparing "what state the provider's cache window happened to be in". Anyone reproducing this: do not skip the noise injection.
 
-Not a theoretical concern. I ran the same mounting logic for 20 requests under three requesting-side forms:
+Not a theoretical concern. I ran the same mounting logic for 20 requests under three requesting-side forms (later referred to by codes — **WBX** = the whitebox direct client I wrote myself, **DXH** = official Harness headless, **COD-X** = a common coding CLI; the codes abbreviate the *type* of requesting side, not any specific product):
 
 | Requesting-side form | Version (source run) | No mount (control) | Mounted (test) |
 |---|---|---|---|
-| Whitebox engine, direct | v0.4.0 (031) / v0.4.2 (032) | 0.00% / 0.00% | 93.09% / 91.89% |
-| Official Harness, headless | v0.4.0 (033) / v0.4.2 (034) | 66.00% / 68.09% | 96.85% / 95.91% |
-| Common coding CLI | v0.4.2 candidate (group 7) / v0.4.3 (group 8) | 9.87% / 0.00% | 90.58% / 98.59% |
+| WBX whitebox self-built, direct | v0.4.0 (031) / v0.4.2 (032) | 0.00% / 0.00% | 93.09% / 91.89% |
+| DXH official Harness, headless | v0.4.0 (033) / v0.4.2 (034) | 66.00% / 68.09% | 96.85% / 95.91% |
+| COD-X common coding CLI | v0.4.2 candidate (group 7) / v0.4.3 (group 8) | 9.87% / 0.00% | 90.58% / 98.59% |
 
 The "whitebox engine, direct" rows sit at 0% for a reason worth stating plainly: **that client is a whitebox test base I wrote myself** (not any official client), and **it deliberately does no prefix handling at all** — no prefix construction, no cache warm-up, no session reuse; each round sends only "task text + random noise". With no reusable prefix on hand, zero is the only possible reading. It is a **structural zero baseline**, not evidence that a provider's cache collapsed.
 
