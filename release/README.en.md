@@ -373,7 +373,47 @@ Shortest path to reproduce:
 
 > ⚠️ **Re-run must-read**: if the control arm does not get random noise on each request's prefix, the vendor's automatic prefix cache will make the control **hit as well**, and the comparison becomes meaningless. This is the step most easily done wrong.
 
-## 10. FAQ
+## 10. Known limitations and non-commitments
+
+Read this before installing. Each item below is a **capability boundary**, not a to-do.
+
+**1. Hits require a byte-stable prefix — this tool cannot guarantee it for you**
+
+A cache hit depends on whether the request prefix (system prompt, tool list, message order, header fields) is identical to the previous request. If your client injects timestamps, random IDs, or a changing tool set into the head, or reorders history, hit rate drops. `cf_inject` can normalise the parts you control, but it **cannot stop a client from altering the prefix**, and cannot force a hit after the fact.
+
+**2. The provider must support prefix caching and have it enabled**
+
+Providers differ in the minimum cacheable prefix length (this project's measurement convention uses "configured threshold × 1.15" as the effective threshold). If the endpoint does not support prefix caching, or it is disabled on the account, the hit rate is zero. **This tool does not change provider behaviour and cannot create hits on a provider that does not support them.**
+
+**3. It reads usage fields the provider already returns — it does not estimate**
+
+Hit figures come from the cache fields in the provider's API usage response. **When the client or provider does not return that field, the number is simply absent from the report** — this project shows "undetermined" rather than estimating a flattering figure from character counts.
+
+**4. `savedUsd` / `cumSavedUsd` are relative values, not a bill**
+
+The bundled default price coefficients exist only for relative hit-vs-miss comparison. They are not any vendor's real rate, and the `Usd` in the field names is historical naming. Substitute your own contract coefficients if you need money; hit rate is unaffected by the coefficients.
+
+**5. No semantic cache, no cross-session content reuse**
+
+This tool does not proxy, forward, or store your prompt text, and does not reuse content at a similarity or semantic level. Asking the same question in different words is not counted as a hit.
+
+**6. Transport is stdio MCP only**
+
+The current package provides stdio mounting only. No HTTP / SSE form. Items marked "undetermined" in the client compatibility table (including Windsurf) have no official documentation behind them: **they are not on the supported list, and no effectiveness claim is made for them.**
+
+**7. The test set is small — this is not a benchmark**
+
+The figures in section 4 come from a controlled 20-request experiment (same-shape plus four request shapes) and are reproducible, but **they are not a prediction for your workload**. See "On the size of this test set".
+
+**8. What is explicitly not promised**
+
+No promise is made about: a specific hit rate, a specific saving ratio or amount, results on any given provider/client combination, the size of any advantage over other caching approaches, or downstream business outcomes. Whether hits occur depends on your request shape and provider policy. **What this tool provides is a controllable stable prefix, admission judgement, and verifiable measurement — not a performance guarantee.**
+
+**9. Switching clients or upgrading requires re-observation**
+
+Changing the client, upgrading the package, or editing the system prompt or tool list invalidates the previously established cache prefix; re-observe per section 9. **Log files produced by older versions are not rewritten or deleted automatically** — clean them up yourself.
+
+## 11. FAQ
 
 Does `hitRate=null` mean it is broken? Why no hit on the first request? Where is the log and how do I read it? Do I need to clean logs when moving machines? See [`FAQ-使用须知.md`](FAQ-使用须知.md) (Chinese).
 
