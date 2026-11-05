@@ -254,9 +254,9 @@ macOS / Linux:
 - **Finding node**: `where node` on Windows; `which node` on macOS / Linux (Homebrew: `/opt/homebrew/bin/node` or `/usr/local/bin/node`; with nvm, use the absolute path inside the version directory).
 - Needs no `npm` and no network — the most robust mode across machines.
 
-### Mode B: one-shot `npx -y` (⚠️ not on npm yet — use Mode A for now)
+### Mode B: one-shot `npx -y`
 
-> ⚠️ **Not on npm yet**: `dobocache` has not been published to the npm registry (`npm view dobocache` returns `404`). Modes B and C are placeholders — **use Mode A (portable zip) until it is published**, otherwise the install will fail.
+> ℹ️ **Channel note**: Modes B and C require the version to be available on the npm registry. If `npm view dobocache` returns `404` (not published yet, or a mirror has not synced), use Mode A (portable zip) instead — behaviour, content and logs are identical, and no config change is needed.
 
 ```json
 {
@@ -272,7 +272,7 @@ macOS / Linux:
 - ⚠️ **On Windows you must write `npx.cmd`** (`"command": "npx.cmd"`). npm installs only `npx.cmd` on Windows — there is no `npx.exe` — so a client calling `spawn("npx")` fails with `ENOENT`. This is the most frequent MCP-on-Windows error.
 - On macOS / Linux keep `npx`; if the client spawns through a non-login shell whose PATH lacks node, use an absolute path such as `/usr/local/bin/npx`.
 - **Use when**: you want automatic version tracking, the machine is online, and you would rather not extract a zip.
-- **Caveat**: the version must be published to npm first — **use Mode A until then**. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
+- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.4.7 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
 
 ### Mode C: global install, call the command directly
 

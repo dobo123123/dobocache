@@ -165,21 +165,33 @@ for (const rel of MAIN_READMES) {
     const n = (seg.match(/^### \d+\. /gm) || []).length;
     if (n < 10) errors.push(`[FAQ] 安装报错速查条目仅 ${n} 条，应不少于 10 条`);
   }
-  // npm 上架状态（全局唯一开关）：上架当天把下面这个 false 改成 true，
-  // 本段校验会自动反向切换，避免出现「文案已改、脚本还在追着要『未上架』限定」的误报。
-  const NPM_PUBLISHED = false;
+  // 渠道口径策略：文档不写死「是否已上架」，只要求给出「取不到时改用便携包」的条件回退指引。
+  // 这样上架前后文案都成立，不必在上架当天改文档、也不必重打 zip 与 npm 包（已发布的包内容不可改）。
+  //   'conditional' —— 默认，推荐：必须含 npx 写法 + 条件回退指引，且不得出现绝对状态断言
+  //   'unpublished' —— 未上架期强限定口径（历史模式）
+  //   'published'   —— 已上架口径
+  const NPM_MODE = 'conditional';
+  // 绝对状态断言：上架前后必有一边为假，一律禁止
+  const ABSOLUTE_MARK = /尚未上架|not on npm yet|has not been published to the npm/;
+  // 条件回退指引：上架前后都成立
+  const FALLBACK_MARK = /取不到|尚未同步|尚未发布|返回 `404`|returns `404`|not published yet|has not synced|use Mode A/;
   for (const rel of MAIN_READMES) {
     const text = docs.get(rel) || '';
     const hasNpx = /npx/.test(text);
-    const hasNotPublishedMark = /尚未上架|未发布前|not on npm|use Mode A/.test(text);
-    if (!NPM_PUBLISHED) {
+    const hasAbsolute = ABSOLUTE_MARK.test(text);
+    const hasFallback = FALLBACK_MARK.test(text);
+    if (NPM_MODE === 'conditional') {
+      if (!hasNpx) errors.push(`[npm 状态] ${rel} 缺少 npx 一次性运行写法`);
+      if (!hasFallback) errors.push(`[npm 状态] ${rel} 含 npx 但缺少「取不到时改用便携包」的条件回退指引`);
+      if (hasAbsolute) errors.push(`[npm 状态] ${rel} 含「尚未上架」类绝对状态断言，应改为条件表述（上架后会失真）`);
+    } else if (NPM_MODE === 'unpublished') {
       // 未上架期间：出现 npx 必须同时标注限定，防止新手照抄失败
-      if (hasNpx && !hasNotPublishedMark) {
+      if (hasNpx && !hasAbsolute) {
         errors.push(`[npm 状态] ${rel} 含 npx 写法但未标注「npm 未上架」限定`);
       }
     } else {
-      // 已上架：不得残留下架表述，且必须给出 npx 一次性运行写法
-      if (hasNotPublishedMark) errors.push(`[npm 状态] ${rel} 已上架，但仍含「未上架」表述，需清理`);
+      // 已上架：不得残留未上架表述，且必须给出 npx 一次性运行写法
+      if (hasAbsolute) errors.push(`[npm 状态] ${rel} 已上架，但仍含「未上架」表述，需清理`);
       if (!hasNpx) errors.push(`[npm 状态] ${rel} 已上架，但缺少 npx 一次性运行写法`);
     }
   }

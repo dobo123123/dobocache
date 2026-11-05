@@ -104,9 +104,9 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ### 10. `npx` / `npm install -g dobocache` 装不上
 
-**原因**：**npm 渠道目前尚未上架**，`npm view dobocache` 返回 404。
+**原因**：该版本在 npm 上取不到（`npm view dobocache` 返回 `404`：可能尚未发布，也可能所用镜像尚未同步）。
 
-**解法**：这条不是你的问题，是我们还没发布到 npm。**请一律用便携包（写法 A）**：
+**解法**：换用便携包（写法 A），功能与 npm 安装完全一致：
 
 ```json
 { "mcpServers": { "dobocache": {
@@ -115,7 +115,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 } } }
 ```
 
-README 里出现的 `npx` 写法是上架后的预留写法，现在还不可用。上架后会在 Release 里公告。
+若 `npm view dobocache` 能返回版本号但仍装不上，多半是镜像延迟或代理问题：换官方源 `npm i -g dobocache --registry https://registry.npmjs.org/` 重试，或直接用便携包。
 
 ### 11. Node 版本报错：`SyntaxError` / `不是函数` / 启动即崩
 

@@ -264,11 +264,11 @@ macOS / Linux：
 - **怎么找 node 路径**：Windows `where node`；macOS / Linux `which node`（Homebrew 常见 `/opt/homebrew/bin/node`、`/usr/local/bin/node`；用 nvm 的请填具体版本目录下的绝对路径）。
 - 该写法不需要 `npm`、不联网，跨机器最稳。
 
-### 写法 B：`npx -y` 一次性运行（⚠️ npm 目前尚未上架，现在请用写法 A）
+### 写法 B：`npx -y` 一次性运行
 
-> ⚠️ **npm 渠道尚未上架**：`dobocache` 目前未发布到 npm registry（`npm view dobocache` 返回 `404`）。写法 B / C 属预留写法，**上架前请一律用写法 A（便携包）**，否则安装必然失败。
+> ℹ️ **渠道说明**：写法 B / C 要求该版本已能从 npm registry 取到。若 `npm view dobocache` 返回 `404`（该版本尚未发布，或所用镜像尚未同步），请直接用写法 A（便携包）——功能、内容与日志行为完全一致，不需要改任何配置。
 >
-> 关于仓库内的 `server.json`：它是**提交给 MCP Registry 的条目描述文件**，其中 `packages[].registryType` 只有 `npm` / `pypi` / `oci` 等固定取值（schema 不存在"便携包"这个类型），因此 `identifier` / `version` 指的是**上架 npm 之后**的发布目标，不代表 npm 上当前已有该包。本文件在 npm 实际上架后才提交给 Registry；在 npm 上架之前，一律以上面这条警示为准。
+> 关于仓库内的 `server.json`：它是**提交给 MCP Registry 的条目描述文件**，其中 `packages[].registryType` 只有 `npm` / `pypi` / `oci` 等固定取值（schema 不存在"便携包"这个类型），因此 `identifier` / `version` 标注的是 npm 上的发布目标；若 npm 上暂时取不到该版本，一律以写法 A 为准。
 
 ```json
 {
@@ -284,7 +284,7 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本已发布到 npm；**未发布前请用写法 A**。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.4.7 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
