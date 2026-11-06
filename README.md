@@ -2,7 +2,7 @@
 
 ---
 
-# DoboCache v0.4.8
+# DoboCache v0.4.9
 
 > **命中缓存 + 白盒报告 —— 每一步都看得见、可复算。**
 
@@ -80,14 +80,14 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 三、版本说明（请先读这一节）
 
-**v0.4.8 = 文档通道修复版。npm 包页面（npmjs.com）不解析 README 里的相对路径，此前两张对照图在包页面显示为破图、FAQ / 上手 / 兼容性说明等文档链接点开 404；本版把根 README 的图片与全部文档链接改为绝对地址，GitHub 与 npm 两处都能正常显示与跳转。代码与缓存核心零改动，行为与 v0.4.7 逐字节一致。**
+**v0.4.9 = 发布通道切换版。npm 已公告自 2027-01 起限制「可绕过 2FA 的长寿命 token」直接发布，本版把发布通道整体切到 GitHub Actions OIDC Trusted Publishing：打 tag 时由 GitHub 签发短期令牌、npm 侧校验后直接收包，仓库与其设置里不再存放任何发布密钥，产物附带 provenance 签名、可追溯到具体 commit 与工作流运行。代码与缓存核心零改动，行为与 v0.4.8 逐字节一致。**
 
 | 项目 | 说明 |
 |---|---|
 | 承接 | v0.4.7 的日志边界（单文件 10MB 轮转 + 默认保留 7 天）、`cf_report` 的 `source="disk"` 读盘聚合、`cf_prune` 口径澄清全部保留；更早的 v0.4.4 `minPrefixTokens` 修复与日志隐私脱敏（`requestId` → `req-<8 位 hash>`；`sessionId` → `sid-<8 位 hash>`；`cf_normalize` 键 → `nk-<16 位 hash>`）也仍在 |
 | 本版改动 | ① **对照图不再破图**：两张对照图（命中率对照 / 三种请求端形态）改用 `raw.githubusercontent.com` 绝对地址，npm 包页面可直接显示出来；② **文档链接不再 404**：根 README 里 9 处指向包内文档的相对链接（零基础上手 / FAQ / 兼容性说明 / SECURITY / LICENSE / 英文版 / 中文版）改为 GitHub 绝对地址，在 npm 页面上点击即可跳转；③ **便携包内文档保持原样**：`release/README.zh.md`、`README.en.md` 继续用同目录相对路径——包内文档与图同目录，解压后离线也能看，两套路径各司其职 |
 | 命中相关代码 | **无代码改动**。缓存核心（前缀冻结 / 对齐 / 分级准入 / 判定逻辑）与 v0.4.7 一致，`dist` 行为逐字节相同，仅 `serverInfo.version` 随版本号更新；默认档位下 `cf_judge` / `cf_inject` 返回**只有一段 JSON、不含卡片** |
-| 冒烟验证 | MCP stdio 冒烟通过（2026-11-06 本机 win32 实跑）：`serverInfo.version = 0.4.8`、`protocolVersion = 2024-11-05`、9 工具齐全、`cf_judge` 正常落盘、`cf_report` 的 `logDir` / `logDirSource` 正常 |
+| 冒烟验证 | MCP stdio 冒烟通过（2026-11-07 本机 win32 实跑）：`serverInfo.version = 0.4.9`、`protocolVersion = 2024-11-05`、9 工具齐全（`ping`/`cf_judge`/`cf_tier`/`cf_inject`/`cf_meter`/`cf_warmup`/`cf_report`/`cf_prune`/`cf_normalize`）、`cf_judge` 真实调用落盘成功（`dobocache-2026-11-07.log.jsonl`）、`cf_report` 返回 `logDir` / `logDirSource`（实测 `calls=1`、`hitRate=80`） |
 | 测试 | **95 / 95 通过**；`tsc --noEmit` 零报错；`eslint src test` 零告警 |
 | 平台验证 | **Windows 真机端到端已验证**；**Linux 已在 `linux/amd64` 容器内实测运行**（协议链路 / 9 工具 / 日志分支 / 只读降级 / Node 版本自检，见「平台支持状态」与 `release/兼容性说明.md`）；macOS 仅单元测试覆盖，**未真机运行** |
 | **不宣称** | 本版**不是性能提升版，也不是功能版**。命中率与 v0.4.7 / v0.4.4 完全相同，请勿把本文任何数字读成「新版本更高」 |
@@ -172,7 +172,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 五、白盒报告：每一步都看得见
 
-每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.4.8）输出的记录示例：
+每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.4.9）输出的记录示例：
 
 ```json
 {
@@ -225,7 +225,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 六、安装与挂载（三种启动写法）
 
-1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.4.8-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
+1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.4.9-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
 3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
@@ -275,7 +275,7 @@ macOS / Linux：
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.4.8"]
+      "args": ["-y", "dobocache@0.4.9"]
     }
   }
 }
@@ -284,12 +284,12 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本能从 npm 取到（`npm view dobocache@0.4.8 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.4.9 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
 ```bash
-npm install -g dobocache@0.4.8
+npm install -g dobocache@0.4.9
 ```
 
 ```json
@@ -303,7 +303,7 @@ npm install -g dobocache@0.4.8
 ```
 
 - ⚠️ **Windows 上同样注意扩展名**：写 `"command": "dobocache.cmd"`；若客户端仍找不到命令，直接填全局安装目录下的绝对路径（`npm root -g` 显示的目录的上一级里的 `dobocache.cmd`）。
-- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.4.8 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
+- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.4.9 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
 - **适用**：一台机器长期固定使用、不想每次下载。升级时重跑 `npm install -g dobocache@<新版本>` 并重启客户端。
 
 三种写法对照：
@@ -410,7 +410,7 @@ npm install -g dobocache@0.4.8
 
 最短复现路径：
 
-1. 解压 v0.4.8 便携包，MCP 指向 `<解压目录>\dist\index.js`；
+1. 解压 v0.4.9 便携包，MCP 指向 `<解压目录>\dist\index.js`；
 2. 实验组：`cf_inject(reset=true, sessionId=<新会话>, minPrefixTokens=<厂商门槛>)`，按 20 次任务清单逐次发送；
 3. 对照组：同样任务文本，但**每次头部注入不同随机噪音**（这是关键，见下）；
 4. 每次取**第二遍**请求的厂商 usage（第一遍建缓存，第二遍才是命中读数）；
@@ -470,7 +470,7 @@ npm install -g dobocache@0.4.8
 
 1. **宿主匿名**：被测宿主统一称"某常见编码 CLI 工具"，不出现具体产品名；
 2. **不报金额**：只报命中率与相对比例，不含任何费用数字；
-3. **不宣称提升**：v0.4.8 是文档通道修复版，缓存核心与 v0.4.7 一致，对外表述为"命中行为与 v0.4.7 一致"，不写"更高/更快/更强"；
+3. **不宣称提升**：v0.4.9 是发布通道切换版，缓存核心与 v0.4.8 一致，对外表述为"命中行为与 v0.4.8 一致"，不写"更高/更快/更强"；
 4. **不混比**：不同实验、不同接入方式、不同厂商的数字不横向混比。
 
 

@@ -1,4 +1,4 @@
-# DoboCache v0.4.8
+# DoboCache v0.4.9
 
 > **Cache hits you can see — and a white-box report for every step.**
 
@@ -75,14 +75,14 @@ Typical call: `cf_inject(reset=true, sessionId=<your-session>, minPrefixTokens=<
 
 ## 3. Release notes (read this first)
 
-**v0.4.8 = a documentation-channel fix. The npm package page does not resolve relative paths inside a README, so both comparison charts rendered as broken images and the links to the FAQ / quick-start / compatibility docs led to 404. This release switches the root README images and all doc links to absolute URLs, so they render and resolve on both GitHub and npm. No code or caching-core change: behaviour is byte-identical to v0.4.7.**
+**v0.4.9 = a release-channel change. npm has announced that long-lived "bypass 2FA" tokens will be restricted for direct publishing starting 2027-01, so this release moves publishing to GitHub Actions OIDC Trusted Publishing: GitHub mints a short-lived OIDC token on tag push, npm validates and accepts the package, and no publishing secret is stored in the repository or its settings; artifacts also carry provenance attestations traceable to a specific commit and workflow run. No code or caching-core change: behaviour is byte-for-byte identical to v0.4.8.**
 
 | Item | Detail |
 |---|---|
 | Inherited | v0.4.7's bounded logs (10MB rotation + 7-day retention by default), `cf_report`'s `source="disk"` re-aggregation, and the corrected `cf_prune` description are all kept; so are v0.4.4's `minPrefixTokens` fix and the log privacy work (`requestId` → `req-<8-hex>`, `sessionId` → `sid-<8-hex>`, `cf_normalize` key → `nk-<16-hex>`) |
 | Changed in this version | ① **Charts no longer break**: both comparison charts (hit-rate comparison / three requesting-side forms) now use `raw.githubusercontent.com` absolute URLs, so the npm package page renders them. ② **Doc links no longer 404**: the nine relative links in the root README (quick start / FAQ / compatibility / SECURITY / LICENSE / English / Chinese) are now absolute GitHub URLs and are clickable from the npm page. ③ **Docs inside the portable bundle stay as they are**: `release/README.zh.md` and `README.en.md` keep same-directory relative paths — inside the bundle the docs and images sit together and work offline after unzipping; the two path styles each serve their own channel |
 | Hit-related code | **No code change.** The caching core (prefix freezing / alignment / tiered admission / judge logic) is identical to v0.4.7 and `dist` behaves byte-identically; only `serverInfo.version` moves with the release number. In the default mode `cf_judge` / `cf_inject` return **one JSON block with no card** |
-| Smoke test | MCP stdio smoke passed (run on win32 on 2026-11-06): `serverInfo.version = 0.4.8`, `protocolVersion = 2024-11-05`, 9 tools present, `cf_judge` writes the log, and `cf_report` returns a valid `logDir` / `logDirSource` |
+| Smoke test | MCP stdio smoke passed (run on win32 on 2026-11-07): `serverInfo.version = 0.4.9`, `protocolVersion = 2024-11-05`, all 9 tools present (`ping`/`cf_judge`/`cf_tier`/`cf_inject`/`cf_meter`/`cf_warmup`/`cf_report`/`cf_prune`/`cf_normalize`), a real `cf_judge` call wrote `dobocache-2026-11-07.log.jsonl`, and `cf_report` returned a valid `logDir` / `logDirSource` (`calls=1`, `hitRate=80`) |
 | Tests | **95 / 95 passing**; `tsc --noEmit` clean; `eslint src test` clean |
 | Platform verification | **Windows verified end-to-end on real hardware**; **Linux actually executed inside a `linux/amd64` container** (protocol chain / 9 tools / log branches / read-only degradation / Node version self-check — see "Platform support status" and `兼容性说明.md` Appendix A); macOS covered by unit tests only, **never run on a real machine** |
 | **Not claimed** | This is **neither a performance release nor a feature release**. Hit rates match v0.4.7 / v0.4.4 exactly; please do not read any number below as "the new version is higher" |
@@ -167,7 +167,7 @@ If you happen to have work like that, mount it, run it, and tell us what you see
 
 ## 5. The white-box report: every step visible
 
-After each `cf_judge` / `cf_inject`, the log records what the step did, why, and with what effect. This record is a **v0.4.8-format sample** — field names, numbers and identifiers follow the current schema; the `label` / `note` strings are **translated here for readability** — the file itself stores the original Chinese text, and the untranslated record is in `README.zh.md` §5:
+After each `cf_judge` / `cf_inject`, the log records what the step did, why, and with what effect. This record is a **v0.4.9-format sample** — field names, numbers and identifiers follow the current schema; the `label` / `note` strings are **translated here for readability** — the file itself stores the original Chinese text, and the untranslated record is in `README.zh.md` §5:
 
 ```json
 {
@@ -215,7 +215,7 @@ The white-box report card is written **into the conversation context**, which co
 
 ## 6. Install and mount (three launch modes)
 
-1. Unzip `dobocache-v0.4.8-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
+1. Unzip `dobocache-v0.4.9-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
 2. Add a **stdio** MCP server in your client's config (pick one of the three modes below);
 3. Restart the client and confirm **9 tools** appear (`ping` plus `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`). A missing tool means the server did not start — check the client log for the server's stderr.
 
@@ -263,7 +263,7 @@ macOS / Linux:
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.4.8"]
+      "args": ["-y", "dobocache@0.4.9"]
     }
   }
 }
@@ -272,12 +272,12 @@ macOS / Linux:
 - ⚠️ **On Windows you must write `npx.cmd`** (`"command": "npx.cmd"`). npm installs only `npx.cmd` on Windows — there is no `npx.exe` — so a client calling `spawn("npx")` fails with `ENOENT`. This is the most frequent MCP-on-Windows error.
 - On macOS / Linux keep `npx`; if the client spawns through a non-login shell whose PATH lacks node, use an absolute path such as `/usr/local/bin/npx`.
 - **Use when**: you want automatic version tracking, the machine is online, and you would rather not extract a zip.
-- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.4.8 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
+- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.4.9 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
 
 ### Mode C: global install, call the command directly
 
 ```bash
-npm install -g dobocache@0.4.8
+npm install -g dobocache@0.4.9
 ```
 
 ```json
@@ -291,7 +291,7 @@ npm install -g dobocache@0.4.8
 ```
 
 - ⚠️ **Same extension caveat on Windows**: write `"command": "dobocache.cmd"`. If the client still cannot find it, use the absolute path of the installed launcher (the `dobocache.cmd` inside the directory whose parent `npm root -g` reports).
-- **macOS / Linux permission errors**: `npm install -g dobocache@0.4.8 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
+- **macOS / Linux permission errors**: `npm install -g dobocache@0.4.9 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
 - **Use when**: one machine, long-term use, no repeated downloads. Upgrade by re-running `npm install -g dobocache@<new version>` and restarting the client.
 
 Comparison:
@@ -387,7 +387,7 @@ Every number here ships in `testdata/`, so you can check and re-run it:
 
 Shortest path to reproduce:
 
-1. Unzip v0.4.8 and point your MCP config at `<extract-dir>\dist\index.js`;
+1. Unzip v0.4.9 and point your MCP config at `<extract-dir>\dist\index.js`;
 2. Mounted arm: `cf_inject(reset=true, sessionId=<new session>, minPrefixTokens=<vendor threshold>)`, then send the 20 requests from the task inventory;
 3. Control arm: identical task text, but **inject different random noise at the head of every request** (see below);
 4. Take the **second** request's vendor usage on each request (the first builds the cache, the second is the measurement);
@@ -447,7 +447,7 @@ This README and its companion materials follow one shared disclosure policy:
 
 1. **Testbed anonymity**: the testbed is referred to only as "a common coding CLI tool", never by product name;
 2. **No monetary figures**: only hit rates and relative ratios — no cost numbers anywhere;
-3. **No improvement claims**: v0.4.8 is a documentation-channel fix whose caching core matches v0.4.7, described as "cache behaviour identical to v0.4.7", never as higher/faster/stronger;
+3. **No improvement claims**: v0.4.9 is a release-channel change whose caching core matches v0.4.8, described as "cache behaviour identical to v0.4.8", never as higher/faster/stronger;
 4. **No mixing**: numbers from different experiments, integration paths or vendors are never compared directly.
 
 

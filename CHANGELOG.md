@@ -1,5 +1,18 @@
 # DoboCache Changelog
 
+## v0.4.9（2026-11-07）— 发布通道切到 OIDC 免 token
+
+> 目标：npm 已公告自 2027-01 起限制「可绕过 2FA 的长寿命 token」直接发布。为免到期当天被掐断发布能力，本版把发布通道整体切到 GitHub Actions OIDC Trusted Publishing：打 tag 时由 GitHub 签发短期令牌，npm 侧校验后直接收包。**不动任何代码**，缓存核心、白盒日志、工具集与 v0.4.8 一致。
+
+### 发布通道
+1. 新增 `.github/workflows/publish.yml`：`permissions` 为 `id-token: write` + `contents: read`，tag `v*` 触发（亦支持手动 `workflow_dispatch`），Node 24 + `npm publish --provenance --access public`；仓库与仓库设置内不存放任何发布密钥。
+2. 工作流内置门禁：tag 与 `package.json` 版本不一致直接失败；发布前依次跑 build / eslint / vitest / 文档一致性校验，任一失败即不发布。
+3. npm 侧已绑定 Trusted Publisher（owner `dobo123123`、repo `dobocache`、workflow `publish.yml`，允许 action：npm publish）；本版即该绑定的首次校验发布。
+4. 产物带 provenance 签名，可追溯到具体 commit 与工作流运行记录。
+
+### 代码
+5. 无代码改动。缓存核心、白盒日志、9 个工具与 v0.4.8 一致；仅 `serverInfo.version` 随版本号更新，`dist` 行为逐字节相同。
+
 ## v0.4.8（2026-11-06）— 修好 npm 包页面上的对照图与文档链接
 
 > 目标：v0.4.7 上线后，包页面（npmjs.com）上的两张对照图显示为破图、FAQ / 上手 / 兼容性说明等链接点开 404。根因是 npm 页面不解析 README 里的相对路径（`assets/…`、`release/…` 会被拼到 npmjs.com 域名下），而 GitHub 仓库页面能正常解析——所以仓库里看着都好，只有包页面坏。本版只修这条对外通道，**不动任何代码**。
