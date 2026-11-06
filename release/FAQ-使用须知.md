@@ -1,6 +1,6 @@
-# FAQ / 使用须知 — DoboCache v0.4.7
+# FAQ / 使用须知 — DoboCache v0.4.8
 
-> 本文汇总挂载后最常见的 14 个问题（§零 为平台支持状态，§一–§十三 为使用问题）。所有结论均对应 v0.4.7 实际行为；涉及数字的条目请与 `testdata/` 内原始数据核对。
+> 本文汇总挂载后最常见的 14 个问题（§零 为平台支持状态，§一–§十三 为使用问题）。所有结论均对应 v0.4.8 实际行为；涉及数字的条目请与 `testdata/` 内原始数据核对。
 
 ---
 
@@ -43,7 +43,7 @@
 
 **解法**：
 1. 在资源管理器里打开你解压的目录，确认**能直接看到 `dist` 文件夹**
-2. 如果看到的是 `dobocache-v0.4.7` 里面再套 `dist`，说明多了一层，要把内层内容提出来
+2. 如果看到的是 `dobocache-v0.4.8` 里面再套 `dist`，说明多了一层，要把内层内容提出来
 3. 把 `dist\index.js` 整个拖进命令行会显示真实路径，复制那个
 
 ### 4. 配置改了但客户端启动失败 / 配置被忽略 / 工具列表空
@@ -401,7 +401,7 @@ Select-String -Path "$old\*.jsonl" -Pattern '::\d{13}' | Select-Object -First 5
 
 | 项 | 怎么拿 | 示例 |
 |---|---|---|
-| DoboCache 版本 | `package.json` 里的 `version`，或 `cf_report` 返回 | `0.4.7` |
+| DoboCache 版本 | `package.json` 里的 `version`，或 `cf_report` 返回 | `0.4.8` |
 | 操作系统 | 自己报 | Windows 11 23H2 / macOS 14.5 / Ubuntu 22.04 |
 | Node.js 版本 | 命令行执行 `node -v` | `v20.11.1` |
 | 客户端名称 + 版本 | 你用的什么在加载它 | Cursor 0.48 / Claude Desktop 0.9 / Cline 3.2 |

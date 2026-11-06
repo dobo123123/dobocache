@@ -3,7 +3,7 @@
   "name": "io.github.dobo123123/dobocache",
   "title": "DoboCache",
   "description": "MCP server for LLM prompt-cache observability: stable prefix construction, value-tier admission, prefix-alignment checks, and a per-call white-box report. Reads the cache usage fields returned by the provider API and keeps logs local; no telemetry.",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "websiteUrl": "https://github.com/dobo123123/dobocache",
   "repository": {
     "url": "https://github.com/dobo123123/dobocache",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "dobocache",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "transport": {
         "type": "stdio"
       },

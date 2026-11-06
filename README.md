@@ -1,8 +1,8 @@
-**[简体中文](README.md) · [English](release/README.en.md)**
+**[简体中文](https://github.com/dobo123123/dobocache/blob/main/README.md) · [English](https://github.com/dobo123123/dobocache/blob/main/release/README.en.md)**
 
 ---
 
-# DoboCache v0.4.7
+# DoboCache v0.4.8
 
 > **命中缓存 + 白盒报告 —— 每一步都看得见、可复算。**
 
@@ -14,8 +14,8 @@ DoboCache 是一个以 **stdio 方式挂载的 MCP Server**，作用是在你已
 > DoboCache 的官方代码仓库只有 <https://github.com/dobo123123/dobocache> 一处，官方发布物只在它的 Releases 页面。
 > 在其他渠道看到同名项目、同名服务或付费版本，均非官方出品。本项目免费，不通过任何第三方平台售卖。
 
-> **第一次用？请先看 [零基础三分钟上手](release/零基础三分钟上手.md)** —— 从装 Node 到验证成功，六步走完，不用懂原理。
-> 装的过程中报错，直接翻 [FAQ 的「安装报错速查」](release/FAQ-使用须知.md#安装报错速查装不上先看这一章)，按报错原文查。
+> **第一次用？请先看 [零基础三分钟上手](https://github.com/dobo123123/dobocache/blob/main/release/零基础三分钟上手.md)** —— 从装 Node 到验证成功，六步走完，不用懂原理。
+> 装的过程中报错，直接翻 [FAQ 的「安装报错速查」](https://github.com/dobo123123/dobocache/blob/main/release/FAQ-使用须知.md#安装报错速查装不上先看这一章)，按报错原文查。
 >
 > 装不上、配不通、不知道怎么写配置？先看上面的 FAQ；还不行就到 [Discussions](https://github.com/dobo123123/dobocache/discussions) 提问（安装类问题不用开 Issue）。
 
@@ -27,7 +27,7 @@ DoboCache 是纯 JavaScript 的 stdio MCP Server，包内**不含任何原生二
 | 平台 | 状态 | 验证到什么程度 |
 |---|---|---|
 | **Windows 10 / 11（x64）** | ✅ **主打平台，已真机验证** | 真机端到端跑通：本组实验 20 次连续请求对照（含真实 MCP 客户端挂载 + 厂商 usage 校验）、便携包解压即跑冒烟、全量 **95 项**测试通过、日志落盘实测 `%LOCALAPPDATA%\DoboCache\logs` |
-| **Linux（x86_64）** | 🟡 **容器环境已实测**（非桌面真机） | 2026-11-04 在 Docker `linux/amd64` + Node 官方 Linux 镜像内对发布包做真实运行：解压即跑、`initialize`/`tools/list` 返回合法、9 个工具全在、`cf_judge` 命中、`cf_inject` 返回 `prefixReady=true`、日志按 `~/.local/state/dobocache` 落盘、`XDG_STATE_HOME` 生效、`DOBOCACHE_LOG_DIR` 优先级最高、只读目录降级不崩溃、Node 16 自检 `exit 1`。**桌面 Linux 真机 + 图形客户端挂载、arm64 仍未验证**（细节见 [`兼容性说明.md`](release/兼容性说明.md) 附录 A） |
+| **Linux（x86_64）** | 🟡 **容器环境已实测**（非桌面真机） | 2026-11-04 在 Docker `linux/amd64` + Node 官方 Linux 镜像内对发布包做真实运行：解压即跑、`initialize`/`tools/list` 返回合法、9 个工具全在、`cf_judge` 命中、`cf_inject` 返回 `prefixReady=true`、日志按 `~/.local/state/dobocache` 落盘、`XDG_STATE_HOME` 生效、`DOBOCACHE_LOG_DIR` 优先级最高、只读目录降级不崩溃、Node 16 自检 `exit 1`。**桌面 Linux 真机 + 图形客户端挂载、arm64 仍未验证**（细节见 [`兼容性说明.md`](https://github.com/dobo123123/dobocache/blob/main/release/兼容性说明.md) 附录 A） |
 | **macOS（Intel / Apple Silicon）** | ⚠️ **未真机验证**（预期可用） | 仅有**单元测试覆盖**：`~/Library/Logs/DoboCache` 路径解析及上述同批用例。**没有在真实 Mac 上跑过完整链路** |
 
 **我们把边界说清楚**：
@@ -41,7 +41,7 @@ DoboCache 是纯 JavaScript 的 stdio MCP Server，包内**不含任何原生二
 | 渠道 | 怎么用 |
 |---|---|
 | GitHub Issues（推荐） | 标题带 `[platform: macOS]` 或 `[platform: linux]`；正文附 `node -v`、`uname -a`（macOS 用 `sw_vers`）、`cf_report` 返回的 `logDir` / `logDirSource`、完整报错原文 |
-| 私下联系（非公开） | 安全类问题请走 [`SECURITY.md`](SECURITY.md) 的私下上报渠道（GitHub Security Advisories），**不要**在公开 issue 中披露；一般问题走 Issues 即可。本项目当前不公开电子邮件地址，以避免维护者个人邮箱被骚扰、撞库或用于社工攻击 |
+| 私下联系（非公开） | 安全类问题请走 [`SECURITY.md`](https://github.com/dobo123123/dobocache/blob/main/SECURITY.md) 的私下上报渠道（GitHub Security Advisories），**不要**在公开 issue 中披露；一般问题走 Issues 即可。本项目当前不公开电子邮件地址，以避免维护者个人邮箱被骚扰、撞库或用于社工攻击 |
 | 自查（反馈前先看） | `release/FAQ-使用须知.md` §三（日志在哪）与 §七（`prefixReady=false` 怎么办），可解决大部分"看起来没生效"的问题 |
 
 > **反馈时不要把提问原文粘进 issue**：日志已脱敏（`req-<hash>` / `sid-<hash>`），贴日志片段足够定位问题。
@@ -80,17 +80,17 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 三、版本说明（请先读这一节）
 
-**v0.4.7 = 日志有了边界 + 统计能跨重启 + 一个说清的工具。日志自动轮转与保留期、`cf_report` 支持 `source="disk"` 读盘聚合、`cf_prune` 描述纠正；缓存核心算法零改动，命中行为与 v0.4.4 逐字节一致。**
+**v0.4.8 = 文档通道修复版。npm 包页面（npmjs.com）不解析 README 里的相对路径，此前两张对照图在包页面显示为破图、FAQ / 上手 / 兼容性说明等文档链接点开 404；本版把根 README 的图片与全部文档链接改为绝对地址，GitHub 与 npm 两处都能正常显示与跳转。代码与缓存核心零改动，行为与 v0.4.7 逐字节一致。**
 
 | 项目 | 说明 |
 |---|---|
-| 承接 | v0.4.4 的 `minPrefixTokens` 修复（v0.4.3 补的那一行）与日志隐私脱敏（`requestId` → `req-<8 位 hash>`；`sessionId` → `sid-<8 位 hash>`；`cf_normalize` 键 → `nk-<16 位 hash>`）全部保留 |
-| 本版新增 | ① **日志有了边界**：单文件到 10MB 滚动为 `.1`、最多 3 份副本，超 7 天的旧日志在当天首次写盘时清理（`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调）；清理只认本模块命名，同目录你自己的文件一个都不动，失败静默跳过，`cf_report` 的 `logPolicy` / `logMaintenance` 可自查；② **`cf_report` 支持 `source="disk"`**：改为从本地日志重新聚合（`days=<n>` 限定窗口），MCP 客户端重启后历史数据不再归零；口径与内存态一致（`hitRate` 只对已判定行求均值，无判定仍返回 `null`），坏行计入 `skippedLines` 不中断聚合；③ **`cf_prune` 说清**：它只修剪调用时传入的 `text`，不读取、不删除磁盘上任何文件，尤其不会删白盒日志 |
-| 命中相关代码 | 缓存核心（前缀冻结 / 对齐 / 分级准入 / 判定逻辑）与 v0.4.4 一致，本版不动算法；默认档位下 `cf_judge` / `cf_inject` 返回**只有一段 JSON、不含卡片** |
-| 冒烟验证 | MCP stdio 冒烟通过：`serverInfo.version = 0.4.7`、9 工具齐全、默认档位无卡片、`once` 仅首次附卡、`always` 每次附卡、`cf_report.cardMode` 与设置一致 |
+| 承接 | v0.4.7 的日志边界（单文件 10MB 轮转 + 默认保留 7 天）、`cf_report` 的 `source="disk"` 读盘聚合、`cf_prune` 口径澄清全部保留；更早的 v0.4.4 `minPrefixTokens` 修复与日志隐私脱敏（`requestId` → `req-<8 位 hash>`；`sessionId` → `sid-<8 位 hash>`；`cf_normalize` 键 → `nk-<16 位 hash>`）也仍在 |
+| 本版改动 | ① **对照图不再破图**：两张对照图（命中率对照 / 三种请求端形态）改用 `raw.githubusercontent.com` 绝对地址，npm 包页面可直接显示出来；② **文档链接不再 404**：根 README 里 9 处指向包内文档的相对链接（零基础上手 / FAQ / 兼容性说明 / SECURITY / LICENSE / 英文版 / 中文版）改为 GitHub 绝对地址，在 npm 页面上点击即可跳转；③ **便携包内文档保持原样**：`release/README.zh.md`、`README.en.md` 继续用同目录相对路径——包内文档与图同目录，解压后离线也能看，两套路径各司其职 |
+| 命中相关代码 | **无代码改动**。缓存核心（前缀冻结 / 对齐 / 分级准入 / 判定逻辑）与 v0.4.7 一致，`dist` 行为逐字节相同，仅 `serverInfo.version` 随版本号更新；默认档位下 `cf_judge` / `cf_inject` 返回**只有一段 JSON、不含卡片** |
+| 冒烟验证 | MCP stdio 冒烟通过（2026-11-06 本机 win32 实跑）：`serverInfo.version = 0.4.8`、`protocolVersion = 2024-11-05`、9 工具齐全、`cf_judge` 正常落盘、`cf_report` 的 `logDir` / `logDirSource` 正常 |
 | 测试 | **95 / 95 通过**；`tsc --noEmit` 零报错；`eslint src test` 零告警 |
 | 平台验证 | **Windows 真机端到端已验证**；**Linux 已在 `linux/amd64` 容器内实测运行**（协议链路 / 9 工具 / 日志分支 / 只读降级 / Node 版本自检，见「平台支持状态」与 `release/兼容性说明.md`）；macOS 仅单元测试覆盖，**未真机运行** |
-| **不宣称** | 本版**不是性能提升版**。命中率与 v0.4.4 相同，请勿把本文任何数字读成「新版本更高」 |
+| **不宣称** | 本版**不是性能提升版，也不是功能版**。命中率与 v0.4.7 / v0.4.4 完全相同，请勿把本文任何数字读成「新版本更高」 |
 
 > 为什么会有 v0.4.3：v0.4.2 正式包里，`injectIncremental` 第 4 步 `topUpPrefixToMin(...)` 之后缺少 `prefix = topUp.prefix;`，导致补足结果没有接回、参数形同虚设。厂商 D 系默认门槛低（295），正常前缀本就够长，所以一直没暴露；厂商 G 系真实门槛 1806+，必须靠补足才能过线，一补不上立刻露馅——这就是回归用厂商 G 的原因。v0.4.3 补上了这一行。
 
@@ -100,7 +100,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 > **先说三个读表约定**：① 「厂商 D」「厂商 G」是匿名代号，「某常见编码 CLI 工具」指某一商业化编码客户端，匿名是为了不把第三方产品的实测表现绑进本文；② 三种请求端统一用代号指代——**WBX**（自研白盒直连）/ **DXH**（官方 Harness headless）/ **COD-X**（常见编码 CLI），代号是请求端类型的缩写，不对应任何具体产品名，也不含第三方商标；③ 表中只报**命中率与相对比例**，不报任何金额，成本相关字段按 README §六 的计价系数折算相对值。
 
-![对照组 vs 实验组 命中率对照](assets/hitrate-comparison.png)
+![对照组 vs 实验组 命中率对照](https://raw.githubusercontent.com/dobo123123/dobocache/main/assets/hitrate-comparison.png)
 
 | 指标 | 对照组（不挂载） | 实验组（挂载 DoboCache） |
 |---|---|---|
@@ -129,7 +129,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 一句话讲明白：**A 的 0% 是"这个请求端本来就没有前缀可命中"（我们自己搭的底座，故意什么都不做，用来测零基线）；B 的 66% 是"官方客户端自带前缀垫在下面"。两者都不是 DoboCache 的作用结果。** 这三个起点只说明一件事——对照组的高度由**请求端自身的前缀处理能力**决定。所以本表只能横着读同一形态内的「挂 vs 不挂」，不能竖着比"谁的对照组更高"，更不能把跨形态百分比相减当作本方案的提升幅度。
 
 
-![三种请求端形态对照：不挂载 vs 挂载](assets/hitrate-comparison-platforms.png)
+![三种请求端形态对照：不挂载 vs 挂载](https://raw.githubusercontent.com/dobo123123/dobocache/main/assets/hitrate-comparison-platforms.png)
 
 | 请求端形态 | 版本 · 实验来源 | 对照组（不挂载） | 实验组（挂载） | 说明 |
 |---|---|---|---|---|
@@ -172,7 +172,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 五、白盒报告：每一步都看得见
 
-每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.4.7）输出的记录示例：
+每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.4.8）输出的记录示例：
 
 ```json
 {
@@ -201,7 +201,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 三类常用对照能力都在：**第几次请求**（`reqIndex`）、**是否同一提问**（`req-...` 相同即同一提问）、**每一步动了什么**（`changes[]` + `note`）。内容本身不落盘。
 
-> 记录里 `hitRate` 为 `null` 表示**本次请求未判定**：`cf_inject` 处在注入阶段、请求尚未发出，且调用方没有把厂商返回的缓存 `usage` 回传给 DoboCache，本机就无法得知真实命中率——此时如实记 `null`（未判定），**不再写 0**。看到 `null` 不要读成"命中率 0%"：要得到可判定的命中率，请在 `cf_judge` / `cf_inject` 里带上 `hitTokens` / `missTokens`（取自厂商 `usage` 的 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`）。累计统计用 `cf_report` 查看。详见 [`FAQ-使用须知.md`](release/FAQ-使用须知.md) 第一节。
+> 记录里 `hitRate` 为 `null` 表示**本次请求未判定**：`cf_inject` 处在注入阶段、请求尚未发出，且调用方没有把厂商返回的缓存 `usage` 回传给 DoboCache，本机就无法得知真实命中率——此时如实记 `null`（未判定），**不再写 0**。看到 `null` 不要读成"命中率 0%"：要得到可判定的命中率，请在 `cf_judge` / `cf_inject` 里带上 `hitTokens` / `missTokens`（取自厂商 `usage` 的 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`）。累计统计用 `cf_report` 查看。详见 [`FAQ-使用须知.md`](https://github.com/dobo123123/dobocache/blob/main/release/FAQ-使用须知.md) 第一节。
 
 ### 白盒报告默认关闭（v0.4.6）
 
@@ -225,7 +225,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 六、安装与挂载（三种启动写法）
 
-1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.4.7-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
+1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.4.8-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
 3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
@@ -275,7 +275,7 @@ macOS / Linux：
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.4.7"]
+      "args": ["-y", "dobocache@0.4.8"]
     }
   }
 }
@@ -284,12 +284,12 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本能从 npm 取到（`npm view dobocache@0.4.7 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.4.8 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
 ```bash
-npm install -g dobocache@0.4.7
+npm install -g dobocache@0.4.8
 ```
 
 ```json
@@ -303,7 +303,7 @@ npm install -g dobocache@0.4.7
 ```
 
 - ⚠️ **Windows 上同样注意扩展名**：写 `"command": "dobocache.cmd"`；若客户端仍找不到命令，直接填全局安装目录下的绝对路径（`npm root -g` 显示的目录的上一级里的 `dobocache.cmd`）。
-- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.4.7 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
+- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.4.8 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
 - **适用**：一台机器长期固定使用、不想每次下载。升级时重跑 `npm install -g dobocache@<新版本>` 并重启客户端。
 
 三种写法对照：
@@ -394,7 +394,7 @@ npm install -g dobocache@0.4.7
 - **请求能否导向你的 OpenAI 兼容端点**：明确支持 5 家（Cline / Continue / Codex CLI / Cherry Studio / Trae）；**Cursor 不能自定义端点**；**Claude Desktop、Gemini CLI 的文档中未见兼容端点入口**。
 - **缓存命中数据在哪看**：只有 2 家有文档级证据，且**都不是"客户端面板里直接显示缓存命中率"**——Codex CLI 是 OTel 遥测字段，Gemini CLI 是 `/stats`。因此本文**不宣称"客户端面板直接显示缓存命中率"**。准确表述是：**DoboCache 在服务端读取厂商 API 返回的 usage 缓存字段并记录、回传**；客户端侧可视化需逐个实测。
 
-完整版（含每个客户端的配置文件路径、格式与 18 条来源链接、未确认清单）见 [`兼容性说明.md`](release/兼容性说明.md)。
+完整版（含每个客户端的配置文件路径、格式与 18 条来源链接、未确认清单）见 [`兼容性说明.md`](https://github.com/dobo123123/dobocache/blob/main/release/兼容性说明.md)。
 
 ## 九、如何复现
 
@@ -410,7 +410,7 @@ npm install -g dobocache@0.4.7
 
 最短复现路径：
 
-1. 解压 v0.4.7 便携包，MCP 指向 `<解压目录>\dist\index.js`；
+1. 解压 v0.4.8 便携包，MCP 指向 `<解压目录>\dist\index.js`；
 2. 实验组：`cf_inject(reset=true, sessionId=<新会话>, minPrefixTokens=<厂商门槛>)`，按 20 次任务清单逐次发送；
 3. 对照组：同样任务文本，但**每次头部注入不同随机噪音**（这是关键，见下）；
 4. 每次取**第二遍**请求的厂商 usage（第一遍建缓存，第二遍才是命中读数）；
@@ -460,7 +460,7 @@ npm install -g dobocache@0.4.7
 
 ## 十一、常见问题
 
-`hitRate` 是 `null` 是不是没生效？第一次请求为什么没命中？日志在哪、怎么读？换机器后要不要清日志？——见 [`FAQ-使用须知.md`](release/FAQ-使用须知.md)。
+`hitRate` 是 `null` 是不是没生效？第一次请求为什么没命中？日志在哪、怎么读？换机器后要不要清日志？——见 [`FAQ-使用须知.md`](https://github.com/dobo123123/dobocache/blob/main/release/FAQ-使用须知.md)。
 
 ---
 
@@ -470,7 +470,7 @@ npm install -g dobocache@0.4.7
 
 1. **宿主匿名**：被测宿主统一称"某常见编码 CLI 工具"，不出现具体产品名；
 2. **不报金额**：只报命中率与相对比例，不含任何费用数字；
-3. **不宣称提升**：v0.4.7 是"日志有边界 + 统计可回溯"版本，缓存核心与 v0.4.4 一致，对外表述为"命中行为与 v0.4.4 一致"，不写"更高/更快/更强"；
+3. **不宣称提升**：v0.4.8 是文档通道修复版，缓存核心与 v0.4.7 一致，对外表述为"命中行为与 v0.4.7 一致"，不写"更高/更快/更强"；
 4. **不混比**：不同实验、不同接入方式、不同厂商的数字不横向混比。
 
 
@@ -481,7 +481,7 @@ npm install -g dobocache@0.4.7
 
 ## 许可证
 
-DoboCache 采用 **Apache License 2.0** 发布，全文见仓库根目录的 [LICENSE](LICENSE)，标准文本也可在 <https://www.apache.org/licenses/LICENSE-2.0> 查阅。
+DoboCache 采用 **Apache License 2.0** 发布，全文见仓库根目录的 [LICENSE](https://github.com/dobo123123/dobocache/blob/main/LICENSE)，标准文本也可在 <https://www.apache.org/licenses/LICENSE-2.0> 查阅。
 
 这意味着：
 

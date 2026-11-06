@@ -1,6 +1,6 @@
 {
   "name": "dobocache",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "MCP server for LLM prompt-cache observability: stable prefix construction, value-tier admission, prefix-alignment checks, and a per-call white-box report. Fully local, no telemetry.",
   "type": "module",
   "main": "dist/index.js",

@@ -26,7 +26,7 @@ if (!nodeCheck.ok) {
 const server = new McpServer(
   {
     name: "dobocache",
-    version: "0.4.7",
+    version: "0.4.8",
   },
   {
     // v0.4.4 r3：服务级说明（MCP 规范 initialize.instructions）。

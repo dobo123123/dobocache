@@ -38,7 +38,7 @@ import { resolveLogDir, type LogDirSource } from "../utils/logDir.js";
  */
 export const REPORT_REPO_URL = "github.com/dobo123123/dobocache";
 /** 读不到 package.json 时的兜底版本（与 package.json 手动保持一致即可） */
-const SIGNATURE_VERSION_FALLBACK = "0.4.7";
+const SIGNATURE_VERSION_FALLBACK = "0.4.8";
 const SIGNATURE_VERSION: string = (() => {
   try {
     const req = createRequire(import.meta.url);

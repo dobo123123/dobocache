@@ -1,6 +1,6 @@
 # Show: a local MCP proxy that keeps your prompt prefix stable, and logs every step
 
-**Repo:** https://github.com/dobo123123/dobocache · **Release v0.4.7:** https://github.com/dobo123123/dobocache/releases/tag/v0.4.7 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
+**Repo:** https://github.com/dobo123123/dobocache · **Release v0.4.8:** https://github.com/dobo123123/dobocache/releases/tag/v0.4.8 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
 
 *An open-source, fully local MCP server for coding CLIs / agent clients. No network calls, no telemetry, no sign-up.*
 
@@ -172,6 +172,6 @@ Counter-examples welcome. If your control group hits heavily *without* noise inj
 
 **Want to try it?** The step-by-step setup guide (Chinese, beginner level, `零基础三分钟上手.md`) lives in [`release/`](https://github.com/dobo123123/dobocache/tree/main/release) — six steps from installing Node to verifying success. If you hit an error, the FAQ section there lists 13 common install failures indexed by the exact error message.
 
-Direct download: [dobocache-v0.4.7-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.4.7/dobocache-v0.4.7-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
+Direct download: [dobocache-v0.4.8-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.4.8/dobocache-v0.4.8-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
 
 *Generated with AI assistance; for reference only.*
