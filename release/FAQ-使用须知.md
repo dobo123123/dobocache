@@ -149,21 +149,21 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ## 零、支持哪些操作系统？Windows 之外能用吗？
 
-**Windows 是主打平台，也是唯一做过真机端到端验证的平台。Linux 已在 `linux/amd64` 容器内实测运行；macOS 未在真机运行过，只有单元测试覆盖。**
+**Windows 是主打平台，也是唯一做过完整端到端验证的平台。Linux 已在 `linux/amd64` 容器内实测运行；macOS 已由 CI 在真实 Mac（Apple Silicon 与 Intel）上跑通冒烟链路，但桌面客户端长会话未实测。**
 
 | 平台 | 状态 | 说明 |
 |---|---|---|
 | Windows 10 / 11（x64） | ✅ 主打，已真机验证 | 本组实验 20 次连续请求真机对照、便携包解压即跑、95 项测试全通、日志落盘实测 |
 | Linux（x86_64） | 🟡 容器环境已实测 | 2026-11-04 Docker `linux/amd64` + Node 官方镜像：解压即跑、`initialize`/`tools/list` 合法、9 工具可用、日志 `~/.local/state/dobocache` 落盘、`XDG_STATE_HOME` 与 `DOBOCACHE_LOG_DIR` 优先级正确、只读目录降级不崩溃、Node 16 自检 `exit 1`；桌面真机 + 图形客户端挂载、arm64 未验证 |
-| macOS（Intel / Apple Silicon） | ⚠️ 未真机验证 | 只有单元测试覆盖 `~/Library/Logs/DoboCache` 及同批用例 |
+| macOS（Apple Silicon / Intel） | 🟡 CI 真机冒烟已通过 | 真实 Mac 上构建 + 单测 + MCP 握手（9 工具）+ 日志目录断言全绿；桌面客户端长会话未实测 |
 
-包内不含任何原生二进制（`.node` / `.exe` / `.dll` 为 0），所以不存在 ABI 层面的"装不上"问题；但**"没有原生依赖"不等于"我们已经验证过"**，桌面 Linux 的图形客户端挂载、macOS 全平台，以及"真实客户端挂载 + 厂商缓存回读"这条完整链路我们没有跑过，因此不做可用性承诺。
+包内不含任何原生二进制（`.node` / `.exe` / `.dll` 为 0），所以不存在 ABI 层面的"装不上"问题；但**"没有原生依赖"不等于"我们已经验证过"**：桌面 Linux 的图形客户端挂载，以及"真实客户端挂载 + 厂商缓存回读"这条完整链路我们没有跑过，因此不做可用性承诺。
 
 **在 Linux / macOS 上遇到问题怎么反馈**（欢迎反馈后修）：
 
 1. 先自查本文 §三（日志落盘位置）与 §七（`prefixReady` 恒 false）；
 2. 反馈时附：`node -v`、`uname -a`（macOS 用 `sw_vers`）、`cf_report` 返回的 `logDir` / `logDirSource`、完整报错原文；
-3. 渠道：GitHub Issues（仓库开通后，标题带 `[platform: linux]` / `[platform: macOS]`）；仓库开通前在包的获取渠道回帖；
+3. 渠道：GitHub Issues（标题带 `[platform: linux]` / `[platform: macOS]`）；
 4. **不要粘提问原文**——日志已脱敏，贴日志片段足够定位。
 
 ## 一、hitRate 是 null / 0，是不是没生效？

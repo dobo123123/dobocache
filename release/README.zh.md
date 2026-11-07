@@ -39,12 +39,12 @@ DoboCache 是纯 JavaScript 的 stdio MCP Server，包内**不含任何原生二
 |---|---|---|
 | **Windows 10 / 11（x64）** | ✅ **主打平台，已真机验证** | 真机端到端跑通：本组实验 20 次连续请求对照（含真实 MCP 客户端挂载 + 厂商 usage 校验）、便携包解压即跑冒烟、全量 **95 项**测试通过、日志落盘实测 `%LOCALAPPDATA%\DoboCache\logs` |
 | **Linux（x86_64）** | 🟡 **容器环境已实测**（非桌面真机） | 2026-11-04 在 Docker `linux/amd64` + Node 官方 Linux 镜像内对发布包做真实运行：解压即跑、`initialize`/`tools/list` 返回合法、9 个工具全在、`cf_judge` 命中、`cf_inject` 返回 `prefixReady=true`、日志按 `~/.local/state/dobocache` 落盘、`XDG_STATE_HOME` 生效、`DOBOCACHE_LOG_DIR` 优先级最高、只读目录降级不崩溃、Node 16 自检 `exit 1`。**桌面 Linux 真机 + 图形客户端挂载、arm64 仍未验证**（细节见 [`兼容性说明.md`](兼容性说明.md) 附录 A） |
-| **macOS（Intel / Apple Silicon）** | ⚠️ **未真机验证**（预期可用） | 仅有**单元测试覆盖**：`~/Library/Logs/DoboCache` 路径解析及上述同批用例。**没有在真实 Mac 上跑过完整链路** |
+| **macOS（Apple Silicon / Intel）** | 🟡 **CI 真机冒烟已通过**（非长期使用验证） | CI 的 macOS job 在真实 Mac 机器上跑通：`npm ci` → `tsc` → `eslint` → `vitest` → MCP stdio 握手（`initialize` + `tools/list` 恰好 9 个工具）+ 日志目录断言（必须落在 `~/Library/Logs/DoboCache` 且 `logDirSource=platform`）。Apple Silicon（`macos-latest`）与 Intel（`macos-13`）两个架构都在矩阵内，最近一次全绿见 Actions。**仍缺**：真实桌面客户端（如各类编码 CLI）挂载后的长会话实测 |
 
 **我们把边界说清楚**：
 
 1. Windows 是主打平台，也是**唯一**做过真机端到端验证（真实客户端挂载 + 厂商 usage 回读）的平台；
-2. Linux 已在 `linux/amd64` 容器环境做过真实运行验证（协议链路 + 日志 + 只读降级 + Node 版本自检），但**桌面发行版的图形客户端挂载、arm64 仍未验证**；macOS **从未在真机运行过**。因此 macOS 只写"未验证"，Linux 只写"容器已实测"，都不写"完整支持"；成功率我们没有真实数据，不做任何百分比承诺；
+2. Linux 已在 `linux/amd64` 容器环境做过真实运行验证（协议链路 + 日志 + 只读降级 + Node 版本自检），但**桌面发行版的图形客户端挂载、arm64 仍未验证**；macOS 侧 CI 已在 Apple Silicon 与 Intel 真机跑通冒烟链路，但**没有做过桌面客户端的长时间会话实测**。因此 macOS 只写"CI 冒烟已通过"，Linux 只写"容器已实测"，都不写"完整支持"；成功率我们没有真实数据，不做任何百分比承诺；
 3. **欢迎反馈后修**：在 Linux / macOS 上跑通或跑挂，都请反馈。我们不把这些平台当作"理论上没问题所以不用管"。
 
 **反馈渠道**
@@ -100,7 +100,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 | 命中相关代码 | **无代码改动**。缓存核心（前缀冻结 / 对齐 / 分级准入 / 判定逻辑）与 v0.4.7 一致，`dist` 行为逐字节相同，仅 `serverInfo.version` 随版本号更新；默认档位下 `cf_judge` / `cf_inject` 返回**只有一段 JSON、不含卡片** |
 | 冒烟验证 | MCP stdio 冒烟通过（2026-11-07 本机 win32 实跑）：`serverInfo.version = 0.4.9`、`protocolVersion = 2024-11-05`、9 工具齐全（`ping`/`cf_judge`/`cf_tier`/`cf_inject`/`cf_meter`/`cf_warmup`/`cf_report`/`cf_prune`/`cf_normalize`）、`cf_judge` 真实调用落盘成功（`dobocache-2026-11-07.log.jsonl`）、`cf_report` 返回 `logDir` / `logDirSource`（实测 `calls=1`、`hitRate=80`） |
 | 测试 | **95 / 95 通过**；`tsc --noEmit` 零报错；`eslint src test` 零告警 |
-| 平台验证 | **Windows 真机端到端已验证**；**Linux 已在 `linux/amd64` 容器内实测运行**（协议链路 / 9 工具 / 日志分支 / 只读降级 / Node 版本自检，见「平台支持状态」与 `release/兼容性说明.md`）；macOS 仅单元测试覆盖，**未真机运行** |
+| 平台验证 | **Windows 真机端到端已验证**；**Linux 已在 `linux/amd64` 容器内实测运行**（协议链路 / 9 工具 / 日志分支 / 只读降级 / Node 版本自检，见「平台支持状态」与 `release/兼容性说明.md`）；macOS 侧 CI 在 Apple Silicon 与 Intel 真机跑通冒烟链路（握手 / 9 工具 / 日志目录 / 构建与单测），**桌面客户端长会话未实测** |
 | **不宣称** | 本版**不是性能提升版，也不是功能版**。命中率与 v0.4.7 / v0.4.4 完全相同，请勿把本文任何数字读成「新版本更高」 |
 
 > 为什么会有 v0.4.3：v0.4.2 正式包里，`injectIncremental` 第 4 步 `topUpPrefixToMin(...)` 之后缺少 `prefix = topUp.prefix;`，导致补足结果没有接回、参数形同虚设。DeepSeek 系默认门槛低（295），正常前缀本就够长，所以一直没暴露；GLM 系真实门槛 1806+，必须靠补足才能过线，一补不上立刻露馅——这就是回归用 GLM 系做回归的原因。v0.4.3 补上了这一行。
