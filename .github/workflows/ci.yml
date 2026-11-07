@@ -83,3 +83,46 @@ jobs:
           path: ci-smoke-artifacts/**
           if-no-files-found: ignore
           retention-days: 7
+
+  # macOS 冒烟专项：主矩阵里的 macos-latest 只覆盖一种架构，本 job 单独跑 Apple Silicon
+  # 机器并显式记录真实架构，用于给 README「macOS 未真机验证 / arm64 未验证」补上平台证据。
+  # 非阻塞（continue-on-error）：托管 runner 排队紧张时被平台取消，不应把整体 run 打成 failure。
+  smoke-macos-arm64:
+    name: smoke (macOS arm64)
+    runs-on: macos-14
+    continue-on-error: true
+    timeout-minutes: 15
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: 记录真实平台与架构
+        run: |
+          echo "runner_os=$RUNNER_OS arch=$(uname -m) node=$(node -v) node_arch=$(node -p 'process.arch')"
+          sw_vers
+
+      - name: 安装依赖（严格按 package-lock）
+        run: npm ci
+
+      - name: 类型编译（tsc）
+        run: npm run build
+
+      # MCP stdio 握手（initialize + tools/list 恰好 9 个工具）+ 日志目录必须落在
+      # ~/Library/Logs/DoboCache 且 logDirSource=platform（证明走 macOS 平台分支，不是 cwd 回退）
+      - name: MCP 握手冒烟 + 日志目录断言（macOS）
+        run: node scripts/ci-mcp-smoke.mjs
+
+      - name: 上传冒烟失败现场（仅失败时）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-smoke-trace-macos-arm64
+          path: ci-smoke-artifacts/**
+          if-no-files-found: ignore
+          retention-days: 7
