@@ -23,6 +23,22 @@ jobs:
           install -m 0755 /tmp/mcp-publisher /usr/local/bin/mcp-publisher
           mcp-publisher --help
 
+      - name: Wait until npm serves the declared version
+        run: |
+          set -euo pipefail
+          VER=$(jq -r .version server.json)
+          for i in $(seq 1 60); do
+            HAVE=$(curl -fsS https://registry.npmjs.org/dobocache/latest | jq -r .version || true)
+            if [ "$HAVE" = "$VER" ]; then
+              echo "npm latest=$VER, ready to publish to the registry"
+              exit 0
+            fi
+            echo "npm latest=$HAVE, waiting for $VER (attempt $i/60)..."
+            sleep 10
+          done
+          echo "timed out waiting for npm to serve version $VER"
+          exit 1
+
       - name: Login (GitHub OIDC)
         run: mcp-publisher login github-oidc
 
