@@ -4,6 +4,17 @@
 
 DoboCache is an **MCP server mounted over stdio**. It sits between your coding CLI / agent client and the model vendor's API, and turns each request's context into a **stable, reusable prefix that is automatically topped up when it falls below the vendor's minimum cache threshold**. Whether the cache hit, how much it hit, and what DoboCache changed along the way are all written to a local white-box log you can read at any time.
 
+### The hard numbers first: 20 consecutive requests, controlled (same machine, same backend model, same parameters — only mounted vs not mounted)
+
+| Requesting side | 20 requests · not mounted | 20 requests · DoboCache mounted |
+|---|---|---|
+| **COD-X**: Codex-family coding CLI (backend model **GLM**, i.e. "vendor G") | **0.00%** (all 20 at zero) | **98.59%** (range 96.08% – 99.79%, 20 of 20 hitting) |
+| **DSH**: DeepSeek official Harness, headless (backend model **DeepSeek**, i.e. "vendor D") | 66.00% (all of that 66% comes from the ~2,560-token system prefix it carries itself) | 96.85% |
+| **WBX**: this project's own white-box direct client (no prefix handling at all) | 0.00% (structural zero baseline: this client has no prefix to hit in the first place) | 93.09% |
+
+> There is only one reading rule: **compare "mounted vs not mounted" horizontally, inside one and the same form**. Control values must not be compared across forms — how high a control arm reads is decided by whether the requesting side does its own prefix handling, not by DoboCache.
+> Per-request usage, task texts and the replay script all ship in the package, so any row can be recomputed by hand → [§4 Measured results](#4-measured-results-20-consecutive-requests-controlled)
+
 ---
 
 > **Official source**
@@ -21,14 +32,14 @@ DoboCache is a pure-JavaScript stdio MCP server. The release bundle contains **n
 
 | Platform | Status | How far it was verified |
 |---|---|---|
-| **Windows 10 / 11 (x64)** | ✅ **Primary platform, verified on real hardware** | End-to-end on a real machine: this 20-request controlled run (real MCP client mount + provider `usage` verification), unzip-and-run smoke test of the portable bundle, full **79** tests passing, log location observed as `%LOCALAPPDATA%\DoboCache\logs` |
+| **Windows 10 / 11 (x64)** | ✅ **Primary platform, verified on real hardware** | End-to-end on a real machine: this 20-request controlled run (real MCP client mount + provider `usage` verification), unzip-and-run smoke test of the portable bundle, full **95** tests passing, log location observed as `%LOCALAPPDATA%\DoboCache\logs` |
 | **Linux (x86_64)** | 🟡 **Verified inside a Linux container** (not a desktop machine) | On 2026-11-04 the released bundle was actually executed on Docker `linux/amd64` with the official Node Linux image: unzip-and-run, valid `initialize` / `tools/list`, all 9 tools present, `cf_judge` hitting, `cf_inject` returning `prefixReady=true`, log written to `~/.local/state/dobocache`, `XDG_STATE_HOME` honoured, `DOBOCACHE_LOG_DIR` taking highest priority, read-only directory degrading without a crash, and Node 16 aborting with `exit 1`. **Desktop Linux with a GUI client mount, and arm64, remain unverified** (details in `兼容性说明.md`, Appendix A) |
-| **macOS (Intel / Apple Silicon)** | ⚠️ **Not verified on real hardware** (expected to work) | **Unit tests only**: `~/Library/Logs/DoboCache` path resolution plus the same test batch. The full chain **has never been run on a real Mac** |
+| **macOS (Intel / Apple Silicon)** | 🟡 **Smoke test passed in CI on real Mac machines** (not long-term use) | The CI macOS job runs on real Mac hardware: `npm ci` → `tsc` → `eslint` → `vitest` → MCP stdio handshake (`initialize` + `tools/list` with exactly 9 tools) → log-directory assertion (must land in `~/Library/Logs/DoboCache` with `logDirSource=platform`). Both architectures are in the matrix, Apple Silicon (`macos-latest`) and Intel (`macos-13`); see Actions for the latest all-green run. **Still missing**: long-session runs with a real desktop client (coding CLIs and the like) mounted |
 
 **We would rather state the boundary than overclaim:**
 
 1. Windows is the primary platform and the **only** one verified end-to-end on real hardware (real client mount + provider `usage` read-back);
-2. Linux has been actually executed in a `linux/amd64` container (protocol chain, logging, read-only degradation, Node version self-check), but **a desktop distribution with a GUI client mount, and arm64, are still unverified**; macOS **has never been run on a real Mac**. So macOS is labelled "not verified" and Linux only "verified in container" — neither is labelled "fully supported". We have no real success-rate data and will not quote a percentage;
+2. Linux has been actually executed in a `linux/amd64` container (protocol chain, logging, read-only degradation, Node version self-check), but **a desktop distribution with a GUI client mount, and arm64, are still unverified**; on macOS, CI has run the smoke chain on real Apple Silicon and Intel machines, but **no long-session test with a desktop client has been done**. So macOS is labelled only "smoke test passed in CI" and Linux only "verified in container" — neither is labelled "fully supported". We have no real success-rate data and will not promise a percentage;
 3. **Feedback welcome, and we will fix what the feedback shows**: whether it works or breaks on Linux / macOS, please tell us.
 
 **Where to send feedback**
@@ -84,16 +95,24 @@ Typical call: `cf_inject(reset=true, sessionId=<your-session>, minPrefixTokens=<
 | Hit-related code | **No code change.** The caching core (prefix freezing / alignment / tiered admission / judge logic) is identical to v0.4.7 and `dist` behaves byte-identically; only `serverInfo.version` moves with the release number. In the default mode `cf_judge` / `cf_inject` return **one JSON block with no card** |
 | Smoke test | MCP stdio smoke passed (run on win32 on 2026-11-07): `serverInfo.version = 0.4.9`, `protocolVersion = 2024-11-05`, all 9 tools present (`ping`/`cf_judge`/`cf_tier`/`cf_inject`/`cf_meter`/`cf_warmup`/`cf_report`/`cf_prune`/`cf_normalize`), a real `cf_judge` call wrote `dobocache-2026-11-07.log.jsonl`, and `cf_report` returned a valid `logDir` / `logDirSource` (`calls=1`, `hitRate=80`) |
 | Tests | **95 / 95 passing**; `tsc --noEmit` clean; `eslint src test` clean |
-| Platform verification | **Windows verified end-to-end on real hardware**; **Linux actually executed inside a `linux/amd64` container** (protocol chain / 9 tools / log branches / read-only degradation / Node version self-check — see "Platform support status" and `兼容性说明.md` Appendix A); macOS covered by unit tests only, **never run on a real machine** |
+| Platform verification | **Windows verified end-to-end on real hardware**; **Linux actually executed inside a `linux/amd64` container** (protocol chain / 9 tools / log branches / read-only degradation / Node version self-check — see "Platform support status" and `兼容性说明.md` Appendix A); macOS **smoke chain run in CI on real Apple Silicon and Intel machines**, with long-session desktop-client testing still missing |
 | **Not claimed** | This is **neither a performance release nor a feature release**. Hit rates match v0.4.7 / v0.4.4 exactly; please do not read any number below as "the new version is higher" |
 
-> Why v0.4.3 exists: in the v0.4.2 release build, step 4 of `injectIncremental` called `topUpPrefixToMin(...)` but was missing the `prefix = topUp.prefix;` assignment, so the top-up never took effect and the parameter was effectively inert. Vendor D's default threshold is low (295), and normal prefixes are already longer than that, so the bug stayed hidden; Vendor G's real threshold is 1806+, where top-up is mandatory — the moment it fails, the bug shows. That is why the regression was run against Vendor G. v0.4.3 added the missing assignment.
+> Why v0.4.3 exists: in the v0.4.2 release build, step 4 of `injectIncremental` called `topUpPrefixToMin(...)` but was missing the `prefix = topUp.prefix;` assignment, so the top-up never took effect and the parameter was effectively inert. The DeepSeek family's default threshold is low (295), and normal prefixes are already longer than that, so the bug stayed hidden; the GLM family's real threshold is 1806+, where top-up is mandatory — the moment it fails, the bug shows. That is why this regression set is run against GLM. v0.4.3 added the missing assignment.
 
 ## 4. Measured results (20 consecutive requests, controlled)
 
-This run: one progressive 20-request conversation. The requesting side was "a common coding CLI tool" wired to a provider referred to as vendor G; the whitebox engine mounted DoboCache over stdio MCP. Same machine, same model, same parameters — the only difference is mounted vs. not mounted.
+This run: one progressive 20-request conversation. The requesting side was **COD-X** (a Codex-family coding CLI) with backend model **GLM**; the whitebox engine mounted DoboCache over stdio MCP. Same machine, same backend model, same parameters — the only difference is mounted vs. not mounted. This form was run for **two complete rounds of 20 requests** (groups 7 and 8), each round mounting a different version — see "Two rounds of 20, same yardstick" at the end of this section for the per-round comparison.
 
-> **Three reading conventions, up front**: ① "Vendor D" / "Vendor G" and "a common coding CLI tool" are anonymous labels — we do not attach third-party product names to our measurements. ② The three requesting sides are referred to by the codes **WBX** (self-built whitebox, direct) / **DXH** (official Harness, headless) / **COD-X** (common coding CLI); each code is an abbreviation of the requesting side's *type*, not of any specific product, and contains no third-party trademark. ③ Only **hit rates and relative ratios** are reported; no monetary amounts. Cost-related fields are relative values converted with the price coefficients described in section 6.
+> **Code list (written so it can be recognised — no over-anonymising)**
+>
+> | Code | What it is | Backend model |
+> |---|---|---|
+> | **WBX** | This project's own white-box direct client (not any official client), deliberately doing no prefix handling at all — built to measure a zero baseline | — |
+> | **DSH** | **DeepSeek official Harness**, headless mode | **DeepSeek** |
+> | **COD-X** | **Codex-family coding CLI** | **GLM** (Zhipu) |
+>
+> Earlier records wrote the vendors as "vendor D" (DeepSeek) and "vendor G" (GLM); from this section on the vendor names are written out, so there is no guessing while reading the tables. Only **hit rates and relative ratios** are reported, never any monetary amount; cost-related fields are relative values converted with the price coefficients described in section 6.
 
 ![Control vs. mounted hit rate](hitrate-comparison.png)
 
@@ -104,6 +123,14 @@ This run: one progressive 20-request conversation. The requesting side was "a co
 | Zero-hit requests | 20 / 20 | **0 / 20** |
 | Prefix ready (`prefixReady=true`) | — | **20 / 20** |
 | Effective threshold `effectiveMinPrefixTokens` | — | **3450** (= 3000 × 1.15, config applied) |
+
+### Why the control arm reads 0 — the causal chain in three sentences
+
+1. **A different random-noise marker was injected at the head of every request**, so the opening segment differed from one round to the next;
+2. The vendor's prefix cache only matches "a beginning byte-identical to last time" — **once the beginning changes, the segment already built is discarded wholesale**, and the whole request counts as a miss;
+3. That drift happened on each of the 20 rounds, so all 20/20 readings were 0 and the mean is 0.00%.
+
+So this 0 is neither "the vendor's cache is bad" nor "the control arm was sabotaged on purpose" — it is **how a prefix cache behaves when the prefix is unstable**. This 0 and WBX's 0 have different causes: WBX is a **structural zero baseline** (that client does no prefix handling at all, so it has no prefix to hit in the first place), whereas the COD-X group is **a zero under noise stress** (a prefix could have existed, but the drift scattered it). Neither is a result of DoboCache — only the "mounted vs not mounted" gap inside one and the same form is.
 
 How to read this — all three points matter together:
 
@@ -118,8 +145,8 @@ How to read this — all three points matter together:
 | Form | Who the requesting side is | Does it do any prefix handling itself? | Why the control arm reads what it reads |
 |---|---|---|---|
 | A · WBX whitebox self-built, direct | **DoboCache's own whitebox test base** — a direct client we wrote ourselves for these experiments, not any official client | **No, none at all**: no prefix construction, no cache warm-up, no session reuse; each round sends only "task text + random noise" | 0 / 28,846 tokens over 20 requests. With nothing reusable in hand, the baseline is structurally **0.00%** — a **structural zero baseline**, not a cache that "collapsed" |
-| B · DXH official Harness, headless | Vendor D's official client (headless mode) | **Yes, guaranteed by both client and provider**: every new session carries ~2,560 tokens of provider-side global system prefix | 51,200 / 77,576 tokens over 20 requests = **66.00%**; 51,200 is exactly 2,560 × 20, so you can verify that all of that 66% comes from the official prefix and owes nothing to DoboCache |
-| C · COD-X common coding CLI | A commercial coding client (vendor G side) | **Not fixed**: no global system prefix; hits only when long-history prefixes happen to stay stable | Group 8: zero on all 20; group 7: only R10 / R20 hit naturally, per-request mean 9.87% |
+| B · DSH DeepSeek official Harness, headless | DeepSeek's official client (headless mode), backend model DeepSeek | **Yes, guaranteed by both client and provider**: every new session carries ~2,560 tokens of provider-side global system prefix | 51,200 / 77,576 tokens over 20 requests = **66.00%**; 51,200 is exactly 2,560 × 20, so you can verify that all of that 66% comes from the official prefix and owes nothing to DoboCache |
+| C · COD-X Codex-family coding CLI | Codex-family coding client, backend model GLM (Zhipu) | **Not fixed**: no global system prefix; hits only when long-history prefixes happen to stay stable | Group 8: zero on all 20; group 7: only R10 / R20 hit naturally, per-request mean 9.87% |
 
 In one sentence: **A's 0% means "this client has no prefix to hit in the first place" (our own base, deliberately doing nothing, used to measure a zero baseline); B's 66% means "the official client already has a prefix underneath". Neither figure is a DoboCache result.** Both starting points say the same thing: the control arm's height is set by **how much prefix handling the requesting side does itself**. Read this table horizontally, "mounted vs not mounted" within one form — never vertically as "whose control arm is higher", and never subtract percentages across forms to claim a gain.
 
@@ -130,10 +157,10 @@ In one sentence: **A's 0% means "this client has no prefix to hit in the first p
 |---|---|---|---|---|
 | A · WBX whitebox self-built, direct | v0.4.0 · exp 031 | 0.00% | 93.09% | Our own whitebox base, no prefix handling at all (structural zero baseline) |
 | A · WBX whitebox self-built, direct | v0.4.2 · exp 032 | 0.00% | 91.89% | Same |
-| B · DXH official Harness, headless | v0.4.0 · exp 033 | 66.00% | 96.85% | The requesting side ships ~2,560 tokens of global system-prefix cache; the control arm degrades 84.27% → 54.54% as noise accumulates |
-| B · DXH official Harness, headless | v0.4.2 · exp 034 | 68.09% | 95.91% | Control baseline comes from the same provider-side system-prefix cache; the mounted arm holds per-round misses down to 135–426 tokens |
-| C · COD-X common coding CLI (vendor G) | v0.4.2 candidate fix build · group 7 | 9.87% | 90.58% | Control arm measured zero on 18/20 requests; R10/R20 hit naturally via long-history prefixes |
-| C · COD-X common coding CLI (vendor G) | v0.4.3 · group 8 | 0.00% | 98.59% | The main dataset in the table above |
+| B · DSH DeepSeek official Harness | v0.4.0 · exp 033 | 66.00% | 96.85% | The requesting side ships ~2,560 tokens of global system-prefix cache; the control arm degrades 84.27% → 54.54% as noise accumulates |
+| B · DSH DeepSeek official Harness | v0.4.2 · exp 034 | 68.09% | 95.91% | Control baseline comes from the same provider-side system-prefix cache; the mounted arm holds per-round misses down to 135–426 tokens |
+| C · COD-X Codex-family coding CLI (backend GLM) | v0.4.2 candidate fix build · group 7 | 9.87% | 90.58% | Control arm measured zero on 18/20 requests; R10/R20 hit naturally via long-history prefixes |
+| C · COD-X Codex-family coding CLI (backend GLM) | v0.4.3 · group 8 | 0.00% | 98.59% | The main dataset in the table above |
 
 Three points to read:
 
@@ -142,18 +169,31 @@ Three points to read:
 3. **Once mounted, all three forms land at 90%–98%**, which shows static prefix reuse is independent of the requesting-side form rather than a quirk of one client.
 4. **A caveat on the denominator, which matters more than the numbers**: forms A / B are reported on an **aggregate basis over the 20 requests** (total cached tokens ÷ total prompt tokens), while form C is the **mean of the 20 per-request hit rates** — two different estimators, so compare orders of magnitude across forms, never add or subtract their percentages. Only "mounted vs not mounted" inside the same form is same-basis.
 
-**A closer look at the COD-X pair (groups 7 and 8) — this is the cell most likely to be misread:**
+### Two rounds of 20, same yardstick: what the later build is actually better at
 
-Both runs share the same form, the same 20-request task set and the same control-arm construction (a *different* random-noise marker injected at the head of every control request, deliberately drifting the prefix); the only difference is the mounted version. The control arm mounts nothing, so it is independent of the version — the gap between "9.87% (group 7)" and "0.00% (group 8)" is **not** "newer version, worse baseline", it is the randomness of the injected noise:
+The COD-X form was **run for two complete rounds of 20 requests each**, the two rounds differing only in the mounted version — the only "same form, same tasks, different version" comparison in this project:
 
-- In group 7, requests R10 and R20 came after 10 and 19 rounds of accumulated history. The long-history prefix was long enough for the provider-side cache to match on its own, so those two requests read **99.27% / 98.10%**; the other 18 were broken up by the noise and read 0, which averages out to 9.87% over 20 requests;
+| Round | Mounted version | Control (not mounted) | Mounted | Abnormal readings in 20 requests |
+|---|---|---|---|---|
+| Group 7 | v0.4.2 candidate fix build | 9.87% | 90.58% | 3 (53.08% / 85.53% / 0.00%) |
+| Group 8 | **v0.4.3** | 0.00% | **98.59%** (96.08% – 99.79%) | **0** |
+
+Both rounds built the control arm identically (a different random-noise marker at the head of each round, deliberately drifting the prefix), so "group 7 = 9.87%, group 8 = 0.00%" is **not** "newer version, worse baseline" — it is only the randomness of the noise itself:
+
+- In group 7, requests R10 and R20 came after 10 and 19 rounds of accumulated history; the long-history prefix was long enough for the provider-side cache to match on its own, reading **99.27% / 98.10%**. The other 18 were broken up by the noise and read 0, so the 20-request mean is 9.87%;
 - In group 8, the noise broke the prefix on all 20 requests, so every reading was 0 and the mean is 0.00%.
 
-**Read the other way round, these two figures prove something that is *not* to this tool's credit: the provider's built-in cache is already good — as long as the prefix stays stable it can hit close to 99%.** Prefix stability is the only bottleneck throughout. What DoboCache does is make the prefix stable and keep it stable on every request; it does not conjure hits out of nothing. So "0%–9.87% unmounted" is a reading under **stress conditions** — it does not mean "the provider's cache is bad", and it must not be read as "mount it and you gain 98 points".
+**So what exactly is "the later build is stronger" about? Three concrete things, none of which is "a higher mean":**
 
-Group 7's mounted mean of 90.58% has the same explanation: R9, R13 and R16 hit provider-side jitter (53.08% / 85.53% / 0.00%). Excluding those three, the remaining 17 average **98.41%**, only 0.16pp from group 8's 98.57% on the same basis — the two versions agree on the stable segment, so there is no "8-point gain from the upgrade". Per-request comparison: `testdata/hitrate-regression-report-20261103.md`, section 6.
+1. **Jitter down to zero**: 3 of group 7's 20 requests were hit by provider-side jitter (53.08% / 85.53% / 0.00%); group 8 had **not a single jitter event** across its 20 requests, `prefixReady` 20/20, and a range of 96.08% – 99.79%;
+2. **A higher floor**: the worst single reading moved from **0.00%** to **96.08%**. What actually ruins the experience with a caching tool is "the occasional request that misses completely" — that went from present to absent;
+3. **A real defect got fixed**: v0.4.3 restored the `prefix = topUp.prefix;` assignment that `injectIncremental` had lost after `topUpPrefixToMin(...)` — the top-up result was never wired back downstream, so the parameter did nothing. The DeepSeek family's default threshold is low (295), and normal prefixes are already longer than that, so the defect stayed hidden; **the GLM family's real threshold is 1806+, where top-up is mandatory**, so the moment it fails the defect shows. That is also why this regression set is always run on COD-X + GLM: it is the strictest gate of all.
 
-Unified reading: **not mounted ≈ 0%–68% (form-dependent), mounted 90%–98%.** Every row above maps to a recorded run (experiments 031 / 032 / 033 / 034 and groups 7 / 8) and to the `source_exp` / `recompute_file` fields of the summary CSV: `testdata/hitrate-multi-platform-summary-20261105.csv` — for forms A / B the numerators and denominators ship as token columns in the same row, while form C is a per-request mean whose per-request files sit in the same folder, so any cell can be recomputed. Per-request charts and the replot script: `scripts/hitrate-comparison.py`. No cell in this table is an estimate or a rounded-up guess.
+To state it in full: **with the jitter rounds excluded, the two builds are level on the stable segment** — group 7's remaining 17 requests average **98.41%**, group 8's same-position average is **98.57%**, a difference of 0.16pp. So please do not read "90.58% → 98.59%" as "the upgrade brought 8 points"; what version iteration actually did is turn "stable" from occasional into every-request, and turn "it can drop to 0" into "it cannot drop that far". The stable-segment level is neither padded nor exaggerated. Per-request comparison: `testdata/hitrate-regression-report-20261103.md`, section 6.
+
+**These two figures also prove something that is *not* to this tool's credit: the vendor's built-in cache is already good — as long as the prefix stays stable it can hit close to 99%.** The only bottleneck throughout is one thing: whether the prefix is stable. What DoboCache does is make the prefix stable and keep it stable on every request; it does not conjure hits out of nothing. So "0%–9.87% unmounted" is a reading under **stress conditions** — it does not mean "the vendor's cache is poor", and it must not be read as "mount it and you gain 98 points".
+
+Unified reading: **not mounted ≈ 0%–68% (floats with the requesting-side form), mounted 90%–98%.** Every row above maps to a recorded run (experiments 031 / 032 / 033 / 034 and groups 7 / 8) and to the `source_exp` / `recompute_file` fields of the summary CSV: `testdata/hitrate-multi-platform-summary-20261105.csv` — for forms A / B the numerator and denominator ship as token columns in the same row, while form C is a per-request mean whose per-request files sit in the same folder, so any cell can be recomputed. Per-request charts and the replot script: `scripts/hitrate-comparison.py`. No cell in this table is an estimate or a rounded-up guess.
 
 ### On the size of this test set: an honest note
 
@@ -445,9 +485,9 @@ Does `hitRate=null` mean it is broken? Why no hit on the first request? Where is
 
 This README and its companion materials follow one shared disclosure policy:
 
-1. **Testbed anonymity**: the testbed is referred to only as "a common coding CLI tool", never by product name;
+1. **Host named, not judged**: the requesting side under test and the backend model are labelled in a recognisable way — **COD-X** = Codex-family coding CLI (backend **GLM**), **DSH** = DeepSeek official Harness headless (backend **DeepSeek**), **WBX** = this project's white-box direct client. Writing out who it is exists so that others can reproduce the run; it does not mean we rank any third-party product better or worse;
 2. **No monetary figures**: only hit rates and relative ratios — no cost numbers anywhere;
-3. **No improvement claims**: v0.4.9 is a release-channel change whose caching core matches v0.4.8, described as "cache behaviour identical to v0.4.8", never as higher/faster/stronger;
+3. **No claim of improvement without a control**: v0.4.9 is a release-channel change whose caching core matches v0.4.8, described as "cache behaviour identical to v0.4.8"; where versions differ, only recomputable measured facts are stated (jitter count, floor, stable-segment values — see §4 "Two rounds of 20, same yardstick"), never unwitnessed phrasing like higher / faster / stronger;
 4. **No mixing**: numbers from different experiments, integration paths or vendors are never compared directly.
 
 
