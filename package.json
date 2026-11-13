@@ -1,7 +1,7 @@
 {
   "name": "dobocache",
   "version": "0.5.0",
-  "description": "Two shapes, one core: an MCP server plus a local proxy for LLM prompt-cache observability - stable prefix construction, value-tier admission, prefix-alignment checks, and a per-call white-box report. Fully local, no telemetry.",
+  "description": "Keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits: a local proxy you adopt by pointing your client's baseURL at localhost (no client code changes) plus a stdio MCP server. Works with Codex CLI, Cline, Continue, Cherry Studio, Trae and any Anthropic / OpenAI / DeepSeek compatible client. Fully local, no telemetry.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -63,7 +63,12 @@
     "dobostitch",
     "claude-code",
     "codex",
-    "observability"
+    "observability",
+    "claude",
+    "openai",
+    "deepseek",
+    "anthropic",
+    "cost-saving"
   ],
   "license": "Apache-2.0",
   "author": {

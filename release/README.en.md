@@ -1,6 +1,56 @@
 # DoboCache v0.5.0 · dobostitch: one cache core, two ways to mount
 
-> **Cache hits you can see — and a white-box report for every step.**
+> **Stop paying full price twice for the same context.**
+> DoboCache keeps the prefix of your requests stable so the **provider prompt cache you are already paying for** actually hits: the first request builds the cache, every request after that is mostly served from it. Runs entirely on your machine — no network calls, no telemetry.
+
+### Three symptoms you have probably hit
+
+| Symptom | What is really happening |
+|---|---|
+| The same session gets more expensive the longer it runs | One changed byte at the head of the request and the provider's cached prefix is **thrown away** — everything after it is billed as a miss |
+| A long session suddenly "forgets" what you were doing | The client auto-compacts or trims history, and the trimmed prefix no longer lines up with the cache block boundary |
+| You switch clients, or edit one character, and hits drop to zero | Timestamps, random IDs and tool-array ordering at the head are not stable |
+
+None of this means the model is bad, and it is not really the vendor cache's fault either — **there is exactly one bottleneck: is the prefix stable?** A stable prefix already gets close to 99% on its own. DoboCache makes that happen on every request instead of by luck, and writes down what it did at each step so you can check it yourself instead of trusting a pretty number.
+
+### 30-second start (no MCP, no client code changes, one command)
+
+```bash
+npx -y dobocache@0.5.0 dobostitch start
+```
+
+The terminal prints a line like `接入 baseURL 填：http://127.0.0.1:27880/anthropic` (use `/openai` or `/deepseek` for those vendors). Paste that into your client's **baseURL** — keys, model names and request bodies stay untouched — then work as usual. A health card shows up in the terminal, and from the **2nd request** on it carries the hit percentage.
+
+Is it alive?
+
+```bash
+curl http://127.0.0.1:27880/__dobostitch/health     # expect {"ok":true,...}
+```
+
+- Unpacked the release zip? Just double-click `start-dobostitch.cmd` (Windows, no `npm install` needed).
+- Full four steps, port fallback and the optional flags → [§6 · Mode D](#mode-d-dobostitch-local-proxy-no-client-code-changes).
+- Never used a terminal? Start with the [3-minute zero-background guide](https://github.com/dobo123123/dobocache/blob/main/release/零基础三分钟上手.md).
+- Your client speaks MCP? The MCP server shape (`dobocache`, 9 tools) is still there, unchanged.
+
+### What it buys you (with conditions, not bare numbers)
+
+Proxy shape (Option D), one ~14k-token system prompt plus 12 tool definitions, both arms byte-identical, measured at the **2nd request**:
+
+| Scenario | Direct | Through the proxy |
+|---|---|---|
+| Prompt contains `current time: …`, different across two turns | 0.00% | **98.85%** |
+| Field order and tool-array order shuffled | 87.39% | **98.98%** |
+| Both requests byte-identical (already stable) | 98.99% | 98.99% |
+
+Three boundaries, in plain words: these numbers hold **only** for the same vendor, the same prompt, the 2nd request; "98.85 percentage points better" is not "98.85% better hit rate"; and when the prompt is already stable it adds nothing — **and makes nothing worse**. No money is converted anywhere; raw data and re-run scripts ship with the package.
+
+### Three things to know before installing
+
+1. **Free, open source, no paid tier** — Apache-2.0, no subscription, no commercial licence gate;
+2. **Your data stays local** — no certificate, no TLS interception, no upload; logs contain no prompt text (`req-<hash>` / `sid-<hash>`) and never leave the machine;
+3. **Platform support is labelled honestly** — Windows verified end-to-end on real hardware; Linux tested in containers; macOS covered by CI smoke tests only (no long-session desktop test). No "fully supported" claim, no success-rate promise.
+
+---
 
 DoboCache is an **MCP server mounted over stdio**. It sits between your coding CLI / agent client and the model vendor's API, and turns each request's context into a **stable, reusable prefix that is automatically topped up when it falls below the vendor's minimum cache threshold**. Whether the cache hit, how much it hit, and what DoboCache changed along the way are all written to a local white-box log you can read at any time.
 
@@ -270,10 +320,10 @@ The white-box report card is written **into the conversation context**, which co
 | `once` | Once, then auto-back to `quiet` | one-off | "did it actually work?" |
 | `always` | Every call | ~300+ each | running controlled experiments and reading every request |
 
-## 6. Install and mount (three launch modes)
+## 6. Install and mount (four ways: A/B/C are MCP mounts, D is the local proxy)
 
 1. Unzip `dobocache-v0.5.0-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
-2. Add a **stdio** MCP server in your client's config (pick one of the three modes below);
+2. Add a **stdio** MCP server in your client's config (pick one of A / B / C below — or skip MCP entirely and use **Mode D**, which needs no client config JSON at all);
 3. Restart the client and confirm **9 tools** appear (`ping` plus `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`). A missing tool means the server did not start — check the client log for the server's stderr.
 
 > **Prerequisite**: Node.js **18 or newer**. The process self-checks at startup and, if the version is too old, prints one plain-language message and exits (no silent failure).
@@ -384,6 +434,68 @@ Where the target vendor's threshold is clearly higher than the default (some ven
 
 > **Replace the price coefficients with your own contracted numbers.** The shipped defaults only express the **relative** hit-vs-miss ratio (roughly 1:36); they are not any vendor's real price. The `Usd` in `savedUsd` / `cumSavedUsd` is a historical field name — the value is "relative cost converted at the current coefficients". Changing the coefficients scales the whole curve proportionally and does not affect the hit rate.
 
+### Mode D: dobostitch local proxy (no client code changes)
+
+Modes A / B / C all assume your client speaks MCP and an agent decides when to call a tool. Mode D sits somewhere else entirely: **the proxy runs between your client and the vendor API**, so every request passes through it whether or not anyone remembers to invoke anything. Your client only changes its `baseURL` — API key, model name and request body stay byte-for-byte identical. MCP support is irrelevant.
+
+**1. Start the proxy** (any one source):
+
+```bash
+npx -y dobocache@0.5.0 dobostitch start        # if npm already serves this version
+dobostitch start                                # after a global install
+```
+
+Unpacked the release zip? Double-click `start-dobostitch.cmd` (Windows, no `npm install` needed).
+
+It prints the address to fill in — **use exactly that line and that port**:
+
+```
+接入 baseURL 填：http://127.0.0.1:27880/anthropic
+```
+
+Default port is `27880`; if it is taken the proxy walks upward one at a time (`27881`, `27882`, …, max 10 tries) and the printed address follows. **Trust the terminal, not your memory.**
+
+**2. Pick the path prefix for your client's dialect**
+
+| Client dialect | Fill in `baseURL` with |
+|---|---|
+| Anthropic-style | `http://127.0.0.1:27880/anthropic` |
+| OpenAI-style | `http://127.0.0.1:27880/openai` |
+| DeepSeek official | `http://127.0.0.1:27880/deepseek` |
+
+Whether a trailing `/v1` is required differs per client — follow that client's docs; a 404 usually means add one and retry.
+
+**3. Optional flags**
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--port <n>` | `27880` | Change the listening port |
+| `--rewrite <off\|observe\|stabilize\|anchor>` | `stabilize` | `off` forwards without touching anything; `observe` inspects only, no rewriting (use for control arms); `stabilize` normalises key order and re-sorts the tool array; `anchor` additionally pins time literals (**experimental**) |
+| `--inject-usage <on\|off>` | `on` | For OpenAI-dialect streaming requests, adds `stream_options.include_usage`; without it usage is usually absent and the hit rate can only be reported as "undetermined" |
+| `--token <value>` / `--require-token` | off | Adds an entry check on the local proxy; worth enabling on a shared machine |
+
+**4. Check it is alive**: open `http://127.0.0.1:27880/__dobostitch/health` (adjust the port). A JSON body containing `"ok": true` and `rewriteMode` means it is fine; it also lists the upstream host behind each of the three routes.
+
+**5. Check it is working**: ask one question as usual — a card appears in the terminal.
+
+```
+【DoboCache 体检卡 A】第 1 次请求 · <vendor>（<dialect>）
+上游：<host>（路由 /anthropic）
+输入 …
+```
+
+From the second request on, read the hit percentage off the card. **The first request is always low** — the vendor has to write this turn's prefix into the cache first.
+
+**Measured** (one ~14k-token system prompt + 12 tool definitions, both arms byte-identical, 2nd request):
+
+| Scenario | Direct | Via proxy | Delta |
+|---|---|---|---|
+| S1 static baseline (requests byte-identical) | 98.99% | 98.99% | **0.00 pp** |
+| S2 timestamp jitter (`current time: …` differs per turn) | 0.00% | **98.85%** | **+98.85 pp** |
+| S3 structural jitter (field order and tool-array order shuffled) | 87.39% | **98.98%** | **+11.59 pp** |
+
+How to read this: these are hit rates for the same vendor, the same prompt, the 2nd request — not a promise about your session, and not a money figure. S1 is the honest part: if your prompt is already stable, Mode D adds nothing and takes nothing away.
+
 ## 7. Privacy: your prompt text is not in the log
 
 Since **v0.4.4**:
@@ -425,6 +537,7 @@ Only statements backed by official documentation or a clear source are included;
 How to read it:
 
 - **Mounting (stdio MCP)**: 7 of the 8 clients above document stdio configuration; Windsurf could not be verified and is left out of the supported list for now.
+- **Adopting Mode D (local proxy)**: any client with ✅ in the `base_url` column can use it as-is — Cline / Continue / Codex CLI / Cherry Studio / Trae. **Cursor cannot** (no endpoint field), so Cursor users should take MCP Mode A/B/C instead. Claude Desktop / Gemini CLI: unconfirmed.
 - **Whether requests can be pointed at your OpenAI-compatible endpoint**: 5 support it explicitly (Cline / Continue / Codex CLI / Cherry Studio / Trae); **Cursor cannot use a custom endpoint**; **Claude Desktop and Gemini CLI show no compatible endpoint entry in their docs**.
 - **Where cache-hit data is visible**: only 2 have documentation-level evidence, and **neither is "the client panel shows cache hit rate"** — Codex CLI exposes it as an OTel telemetry field, Gemini CLI via `/stats`. This document therefore **does not claim that clients display cache hit rates in their panels**. The accurate statement is: **DoboCache reads the cache fields of the vendor API's usage response on the server side and records and returns them**; per-client visualisation needs to be verified case by case.
 
