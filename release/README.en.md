@@ -1,4 +1,4 @@
-# DoboCache v0.5.0
+# DoboCache v0.5.0 · dobostitch: one cache core, two ways to mount
 
 > **Cache hits you can see — and a white-box report for every step.**
 

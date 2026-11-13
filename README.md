@@ -2,7 +2,7 @@
 
 ---
 
-# DoboCache v0.5.0 · dobostitch 本地代理同步上线
+# DoboCache v0.5.0 · dobostitch：同一缓存内核，两种挂法
 
 > **命中缓存 + 白盒报告 —— 每一步都看得见、可复算。**
 
