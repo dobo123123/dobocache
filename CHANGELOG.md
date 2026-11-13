@@ -1,5 +1,32 @@
 # DoboCache Changelog
 
+## 未发布（版本号待老板拍板）— 「一装即接上」改造
+
+> 目标：老板指出——现在发出去的版本，用户还得自己配 baseURL、自己写拉起脚本，很多人用不明白。本段改造把「教用户手工配」换成「一条命令自己接上」：`npx -y dobocache dobostitch setup`。缓存内核零改动。
+
+### 代码
+1. **一条命令接入（P0）**：新增 `setup` 子命令 = 识别本机 AI 客户端 → 备份并写入配置 → 把「能自动带起代理」的入口挂进 MCP → 注册开机自启；已接好的客户端重复执行显示「已是接入状态」，幂等不重复改。
+2. **MCP 入口自带拉起代理**：以 detached 方式拉起，stdout/stderr 全落日志文件，不污染 MCP 协议流；启动前按「环境变量 → 上次记录端口 → 默认端口」探测并复用已在跑的代理，避免多底座各起一个导致缓存分裂。
+3. **端口统一记账**：`~/.dobocache/state.json` 记本机代理最终端口，MCP 入口 / 开机自启 / 接入命令三方同口径。
+4. **Windows 开机自启真因修复**：计划任务 `/TR` 有 261 字符上限，改为指向 `~/.dobocache/bin/dobocache-proxy.cmd`；代理入口按模块自身位置解析，不依赖启动 cwd。
+5. **日志统一落 `~/.dobocache/logs`**（原先默认落调用方 cwd，实测曾落进 `C:\Windows`）。
+6. **工具描述去歧义（推广线评分卡反馈，Disambiguation）**：
+   - `cf_meter` = 当前进程内即时快照（重启归零）；`cf_report` = 读落盘日志的跨进程/跨天历史报表；两者描述里互相点明分工。
+   - `cf_prune` 改为正面动作陈述（压缩传入文本、双上限截断、返回体积比），删掉「不读取/不清理磁盘」的否定式辩解。
+   - `cf_normalize` 明确输入是结构化 rows 数组、输出 `nk-` 键指纹，并点明与 `cf_prune`（吃纯文本）的分工。
+   - `ping` 描述补全用途与返回值；**名称沿用不改**（改名会破坏既有客户端提示词与自动化，列为待拍板项）。
+   - `cf_meter.reset`、`cf_normalize.rows/fields` 参数说明补精确口径（TDQS 参数描述项）。
+
+### 文档
+7. `README.md` 首屏主线改为 `npx -y dobocache dobostitch setup`；「一条 `start` + 手填 baseURL」降为「手动方式（可选）」，配套 `status` / `health` 双自检。
+8. `package.json` / `server.json` 的 description 同步「一条命令自动接入」口径。
+9. 交接物料：`handoff/release-kit/17-开发线改造回执-一装即接入.md`、`18-一条命令上手-中文.md`、`19-One-command-setup-English.md`（与中文完全同构）、`20-给推广线的改造交接单-一装即接入.md`。
+
+### 未做（待老板拍板 / 分工归属）
+- **版本号未升**，仍为 `0.5.2`；
+- `ping` 是否改名（现为评分卡 Naming 4/5 的扣分项，改名有兼容代价）；
+- `release/*.md` 六份对外文档由推广线按 20 号单改，开发线不碰。
+
 ## v0.5.2（2026-11-13）— 首屏命令修复：`npx dobocache@x dobostitch start` 不再挂住
 
 > 目标：v0.5.1 发布后在真实环境复验时发现，文档里给用户的第一屏代理命令 `npx dobocache@0.5.1 dobostitch start` **实际会起来一个 MCP server 并挂住**，代理根本没启动。原因是包里有两个 `bin`，`npx` 只跑与包同名的那个，入口又不读 `argv`。本版修这条路径，并把「记录写进包目录」一并挪到平台数据目录。

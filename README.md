@@ -19,24 +19,34 @@
 
 这三件事不是"模型不行"，也不全是厂商缓存不行——**卡点只有一个：前缀稳不稳。** 厂商缓存本身很好用，前缀稳的时候能吃到接近 99%；DoboCache 做的是把这件"靠运气"的事变成每次请求都发生，并且把每一步做了什么写成本地日志，让你能自己核对，而不是只看一个漂亮数字。
 
-### 30 秒上手（不用 MCP、不改客户端代码、一条命令）
+### 30 秒上手（一条命令，自己接上）
 
 ```bash
-npx -y dobocache@0.5.2 dobostitch start
+npx -y dobocache dobostitch setup
 ```
 
-终端会打印一行接入地址，形如 `接入 baseURL 填：http://127.0.0.1:27880/anthropic`（按你用的厂商换成 `/openai` 或 `/deepseek`）。把这行填进客户端的 **baseURL**，密钥、模型名、请求内容一个字都不用动，然后照常提问——终端会出现一张体检卡，**从第 2 轮请求起**卡上就有命中百分比。
+它按顺序做四件事，屏幕上都会打出来：
 
-想知道它活着没有：
+1. 识别你电脑上装了哪些 AI 客户端（开箱即扫，不需要你指定路径）；
+2. 每个客户端的配置**先备份、再改**；
+3. 把「能自动带起本地代理」的入口写进客户端的 MCP 配置；
+4. 注册开机自启（登录后自动起代理）。
+
+跑完**重启客户端**即可。不用改 `baseURL`、不用写脚本、不用另起进程——MCP 入口被拉起时，本地代理会自己跟着起来。换客户端时再跑一次这条命令即可，已接好的会显示「已是接入状态」，幂等不重复改。
+
+跑完想确认真的接上了：
 
 ```bash
+npx -y dobocache dobostitch status                  # 立刻返回，并列出它识别到的客户端会话
 curl http://127.0.0.1:27880/__dobostitch/health     # 期望返回 {"ok":true,...}
 ```
 
+> 端口不一定是 `27880`：以 `status` 打印或客户端里显示的为准。
+
+- 只想手动填 `baseURL`（不走自动接入）：一条 `npx -y dobocache dobostitch start` 拿到地址后填进客户端，细节 → [§六 · 写法 D](#写法-ddobostitch-本地代理不用改客户端代码)
 - 已解压发布包：双击 `start-dobostitch.cmd` 即可（Windows，无需 `npm install`）
-- 完整四步、端口顺延规则、可选参数（`--port` / `--rewrite` / `--inject-usage` / `--token`）→ [§六 · 写法 D](#写法-ddobostitch-本地代理不用改客户端代码)
 - 完全没接触过命令行 → [零基础三分钟上手](https://github.com/dobo123123/dobocache/blob/main/release/零基础三分钟上手.md)，从装 Node 到验证成功六步走完
-- 你的客户端支持 MCP？也可以走 MCP Server 形态（`dobocache`，9 个工具），见 [§六 写法 A/B/C](#六安装与挂载四种写法abc-是-mcp-挂载d-是本地代理)
+- 客户端支持 MCP、想手动挂载（`dobocache`，9 个工具）→ 见 [§六 写法 A/B/C](#六安装与挂载四种写法abc-是-mcp-挂载d-是本地代理)
 
 ### 挂上去能到什么水平（带条件，不裸报）
 
@@ -378,7 +388,7 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 ## 六、安装与挂载（四种写法：A/B/C 是 MCP 挂载，D 是本地代理）
 
-> **赶时间、只想看一条路**：不想碰 JSON 配置、客户端支不支持 MCP 都无所谓的，直接跳 [写法 D](#写法-ddobostitch-本地代理不用改客户端代码)——一条 `npx -y dobocache@0.5.2 dobostitch start` 就够，剩下的只是把客户端的 `baseURL` 换成终端打印的那个地址。
+> **赶时间、只想看一条路**：不想碰 JSON 配置、客户端支不支持 MCP 都无所谓的，直接跑 `npx -y dobocache dobostitch setup`——它自己找客户端、自己写配置、自己挂开机自启，跑完重启客户端就行，不用改 `baseURL`、不用写脚本（细节见 [写法 D](#写法-ddobostitch-本地代理不用改客户端代码)）。
 > 下面写法 A / B / C 是 **MCP 挂载**路线，适合客户端已支持 MCP、且希望由 Agent 自己决定何时整理前缀的情况。
 
 1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.5.2-portable.zip` 并解压（内含 `dist`、`src`、启动脚本与校验清单。**代理形态（写法 D）零外部依赖，解压双击即可跑，无需 `npm install`**；MCP 形态依赖 `@modelcontextprotocol/sdk`，请走写法 B / C 从 npm 安装。包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C / D 从 npm 装**；
@@ -510,16 +520,26 @@ npm install -g dobocache@0.5.2
 
 A / B / C 三种都是 **MCP 挂载**——前提是客户端支持 MCP，且由它主动调用工具。写法 D 换了个位置：**代理坐在客户端和模型厂商之间**，客户端只把 `baseURL` 改成代理地址，密钥、模型名、请求内容一个字不动。客户端支不支持 MCP 都无所谓。
 
-**1. 起代理**（三种来源任选）
+**1. 起代理并接上**
+
+推荐让工具自己接（不用自己找配置、不用自己填 `baseURL`）：
 
 ```bash
-npx -y dobocache@0.5.2 dobostitch start        # 已能从 npm 取到该版本时
+npx -y dobocache dobostitch setup
+```
+
+它会识别本机客户端、备份并写入配置、把「能自动带起代理」的 MCP 入口挂好、注册开机自启；跑完重启客户端即可。
+
+只想手动起代理、自己填 `baseURL` 的话（三种来源任选）：
+
+```bash
+npx -y dobocache dobostitch start              # 走 npm 直接跑，不需要预先安装
 dobostitch start                                # 全局安装后直接调命令
 ```
 
 解压了发布包的话，直接双击 `start-dobostitch.cmd` 即可（Windows，无需 `npm install`）。
 
-启动后会打印你要填的地址，**以它打印的那一行、那一版端口为准**：
+`start` 启动后会打印你要填的地址，**以它打印的那一行、那一版端口为准**：
 
 ```
 接入 baseURL 填：http://127.0.0.1:27880/anthropic（按厂商换前缀）

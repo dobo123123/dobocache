@@ -83,7 +83,7 @@ async function startMcpServer(): Promise<void> {
       instructions: [
         "DoboCache 是本地 stdio MCP server，用于稳定化上下文前缀以命中厂商 prompt cache，并输出可追溯的白盒报告。",
         "典型顺序：cf_tier 做价值分级准入 → cf_inject 注入（首次请求 reset=true，后续请求同 sessionId 复用冻结前缀）→ 需要时 cf_warmup 预热。",
-        "cf_report 输出累计命中率与日志实际落点（logDir / logDirSource）；日志仅写本机，不含提问原文。",
+        "观测口径：cf_meter 报当前进程内即时快照（重启归零），cf_report 读本地日志做跨进程/跨天累计并给出日志实际落点（logDir / logDirSource）；日志仅写本机，不含提问原文。",
         "白盒卡片默认关闭：默认只在本地写日志、不往对话里塞报告，累计数据用 cf_report 随时查（不占对话 token）；想看每次详情可设 DOBOCACHE_WHITEBOX=once（看一次）或 always（每次都看）。",
         "命中率只认厂商回传的缓存 usage；调用方未回传 usage 时记为\"未判定\"（null），不按 0% 计。",
         "所有工具均在本地计算，不发起任何网络请求，不上传任何数据。",

@@ -488,7 +488,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 白盒累计统计（v0.4.1）
   server.tool(
     "cf_report",
-    "白盒累计统计（v0.4.1）：输出今日与进程内累计的请求次数、缓存命中率、原始/优化 token、预计命中 token 与命中比例；v0.4.2 支持按会话聚合维度（per_session）；v0.4.6 附带 cardMode（白盒卡片档位，默认 quiet）；v0.4.7 新增 source=disk，可直接从本地日志重新聚合（进程重启后历史数据不再丢失）。命中率为 null 表示本期没有可判定的厂商 usage 数据（未判定），不是 0%。数据来自本地白盒日志（默认平台标准可写目录，`DOBOCACHE_LOG_DIR` 可覆盖，不占对话 token），可追溯每次请求的白盒报告。日志按「单文件 10MB 轮转 + 默认保留 7 天」自动维护（`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），返回中的 logPolicy 即当前生效值。",
+    "历史报表：从本地白盒日志汇总请求次数、厂商 usage 真实缓存命中率、原始/优化 token、预计命中 token 与命中比例，支持 total / per_session 聚合，附带 cardMode（白盒卡片档位，默认 quiet）。与 cf_meter 的分工：cf_report 读落盘日志，可跨进程、跨天累计（source=disk，进程重启不丢）；cf_meter 只报当前进程内即时快照。命中率为 null 表示本期没有可判定的厂商 usage 数据（未判定），不是 0%。日志默认写平台标准可写目录（`DOBOCACHE_LOG_DIR` 可覆盖），只在本机、不含提问原文、不占对话 token；按「单文件 10MB 轮转 + 默认保留 7 天」自动维护（`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），返回中的 logPolicy 即当前生效值。",
     {
       reset: z.boolean().optional().describe("是否清空累计计数后输出空统计"),
       aggregateBy: z.enum(["total", "per_session"]).optional().describe("聚合维度（v0.4.2，默认 total）：total=进程内累计；per_session=按会话分组）"),
@@ -556,7 +556,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 工具输出修剪
   server.tool(
     "cf_prune",
-    "确定性修剪「传入的文本」：去重行、压缩空白、行数/字符数双上限，返回修剪前后体积比，为稳定前缀腾出空间。注意（v0.4.7 说清）：本工具只处理调用时传入的 text 字符串，不读取、不清理磁盘上的任何文件，尤其不会删白盒日志；白盒日志的体积由服务端自动维护（单文件 10MB 轮转、默认保留 7 天，`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），无需用本工具介入。",
+    "压缩你传入的文本，为稳定前缀腾出空间：去重行、压缩空白，按 maxChars / maxLines 双上限截断（默认保留头部），返回修剪前后体积比与丢弃行数。输入只认参数里的 text 字符串，输出是可直接拼进上下文的短文本；要处理结构化行数据用 cf_normalize。白盒日志由服务端自维护（单文件 10MB 轮转、默认保留 7 天，`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），体积无需人工干预。",
     {
       text: z.string().describe("原始工具输出"),
       maxChars: z.number().int().min(1).optional().describe("最大字符数，默认 2000；必须为 ≥ 1 的整数"),
@@ -593,10 +593,10 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 结构化结果确定性归一
   server.tool(
     "cf_normalize",
-    "结构化工具结果确定性化：字段裁剪 + 稳定排序，让内容相同但顺序抖动的返回归一为同一缓存键。",
+    "归一化结构化行数据（对象数组）：按字段白名单裁剪 + 稳定排序，让内容相同但顺序抖动的返回归为同一个缓存键，输出归一后的 rows 与 `nk-` 前缀键指纹。与 cf_prune 的分工：cf_normalize 吃 rows 数组、产出稳定键；cf_prune 吃纯文本、产出短文本。",
     {
-      rows: z.array(z.record(z.string(), z.unknown())).describe("结构化行数据"),
-      fields: z.array(z.string()).optional().describe("保留字段白名单"),
+      rows: z.array(z.record(z.string(), z.unknown())).describe("结构化行数据（对象数组），排序依据字段名而非原始行序"),
+      fields: z.array(z.string()).optional().describe("保留字段白名单；不传则保留全部字段"),
     },
     {
       title: "结构化归一（cf_normalize）",
