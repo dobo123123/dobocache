@@ -2,11 +2,44 @@
 
 ---
 
-# DoboCache v0.5.0
+# DoboCache v0.5.1
 
 > **命中缓存 + 白盒报告 —— 每一步都看得见、可复算。**
 
-DoboCache 是一个以 **stdio 方式挂载的 MCP Server**，作用是在你已有的编码 CLI / Agent 客户端和模型厂商 API 之间，把每一次请求的上下文整理成**稳定、可复用、过长会自动补足**的前缀，从而让厂商的**前缀缓存（prompt caching）**真正命中；命中与否、命中多少、哪一步做了调整，全部写进本地白盒日志并可随时查询。
+DoboCache 有**两种用法、共用同一套缓存内核**：**A. 以 stdio 方式挂载的 MCP Server**；**B. 本地代理 `dobostitch`**（客户端不需要支持 MCP，把 `baseURL` 指过来即可）。两者作用相同：在你已有的编码 CLI / Agent 客户端和模型厂商 API 之间，把每一次请求的上下文整理成**稳定、可复用、过长会自动补足**的前缀，从而让厂商的**前缀缓存（prompt caching）**真正命中；命中与否、命中多少、哪一步做了调整，全部写进本地白盒日志并可随时查询。
+
+## 两种形态，同一套内核（v0.5.0 起）
+
+| 形态 | 启动方式 | 怎么用 | 适合谁 |
+|---|---|---|---|
+| **A. MCP Server**（原有） | `dobocache` | 在客户端的 MCP 配置里挂一个 stdio 服务，由客户端决定何时调用 `cf_*` 工具 | 客户端支持 MCP，且习惯在配置里管理工具 |
+| **B. 本地代理 `dobostitch`**（v0.5.0 新增） | `dobostitch start` | 在本机起一个本地代理，把客户端的 `baseURL` 改成代理地址，请求自动过一遍 | 客户端不支持 MCP，或不想改配置结构、只想"填个地址就能用"的人 |
+
+> **两条路装一个就够，不要同时装。** 它们共用同一套命中判定、同一份白盒卡片、同一套日志格式，区别只是"谁来触发"。
+
+### 最快一条路：本地代理（不改客户端任何代码）
+
+```bash
+# 1) 起代理（已能从 npm 取到该版本时用这条；取不到就解压便携包，双击 start-dobostitch.cmd）
+npx -y dobocache@0.5.1 dobostitch start
+```
+
+2) 终端会打印一行接入地址，形如 `接入 baseURL 填：http://127.0.0.1:27880/anthropic`（按你用的厂商换成 `/openai` 或 `/deepseek`）。
+3) 把这行填进客户端的 **baseURL**——密钥、模型名、请求内容一个字都不用动，然后照常提问。终端会出现一张体检卡，**从第 2 轮请求起**卡上就有命中百分比。
+4) 想确认代理活着，随时探活：
+
+```bash
+curl http://127.0.0.1:27880/__dobostitch/health     # 期望返回 {"ok":true,...}
+```
+
+**这一形态的边界（先说清楚，避免预期错位）**
+
+- 目前只在 **Windows 11 x64 真机**做过端到端验证；Linux / macOS 的代理形态**未真机验证**，不在本版承诺范围。
+- 命中率数字只在**同一厂商、同一份提示、第 2 轮请求**下成立；提示本来就稳定时，它**不带来增量，也不会让结果变差**。
+- 第 0 次请求时卡片上的命中率写「未判定（厂商未回传 usage）」，**这是正常现象，不是 0%**。
+- 探活路径是 `/__dobostitch/health`，**不是** `/health`（后者返回 404）。
+- 更细的四步操作、端口顺延规则、可选参数（`--port` / `--rewrite` / `--inject-usage` / `--token`）见包根目录 `README.md` 的「写法 D」一节。
+
 
 ### 先看硬数据：20 次连续请求对照（同一台机器、同一后端模型、同一套参数，只区分挂没挂）
 
@@ -265,7 +298,7 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 ## 六、安装与挂载（三种启动写法）
 
-1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.5.0-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
+1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.5.1-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
 3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
@@ -315,7 +348,7 @@ macOS / Linux：
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.5.0"]
+      "args": ["-y", "dobocache@0.5.1"]
     }
   }
 }
@@ -324,12 +357,12 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本能从 npm 取到（`npm view dobocache@0.5.0 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.5.1 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
 ```bash
-npm install -g dobocache@0.5.0
+npm install -g dobocache@0.5.1
 ```
 
 ```json
@@ -343,7 +376,7 @@ npm install -g dobocache@0.5.0
 ```
 
 - ⚠️ **Windows 上同样注意扩展名**：写 `"command": "dobocache.cmd"`；若客户端仍找不到命令，直接填全局安装目录下的绝对路径（`npm root -g` 显示的目录的上一级里的 `dobocache.cmd`）。
-- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.5.0 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
+- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.5.1 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
 - **适用**：一台机器长期固定使用、不想每次下载。升级时重跑 `npm install -g dobocache@<新版本>` 并重启客户端。
 
 三种写法对照：
@@ -450,7 +483,7 @@ npm install -g dobocache@0.5.0
 
 最短复现路径：
 
-1. 解压 v0.5.0 便携包，MCP 指向 `<解压目录>\dist\index.js`；
+1. 解压 v0.5.1 便携包，MCP 指向 `<解压目录>\dist\index.js`；
 2. 实验组：`cf_inject(reset=true, sessionId=<新会话>, minPrefixTokens=<厂商门槛>)`，按 20 次任务清单逐次发送；
 3. 对照组：同样任务文本，但**每次头部注入不同随机噪音**（这是关键，见下）；
 4. 每次取**第二遍**请求的厂商 usage（第一遍建缓存，第二遍才是命中读数）；

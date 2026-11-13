@@ -3,7 +3,7 @@
   "name": "io.github.dobo123123/dobocache",
   "title": "DoboCache",
   "description": "Local proxy + MCP server: keeps LLM prompt-cache prefixes stable so caching hits.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "websiteUrl": "https://github.com/dobo123123/dobocache",
   "repository": {
     "url": "https://github.com/dobo123123/dobocache",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "dobocache",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "transport": {
         "type": "stdio"
       },

@@ -15,3 +15,8 @@ ci-smoke-artifacts/
 
 # dobostitch 交付物归位目录（局域网交接包与报告，仅本机/共享分发，不进仓库）
 handoff/
+
+# 本地发布辅助与查询残留（不属仓库内容）
+_rel.json
+disc_query.graphql
+
