@@ -2,26 +2,58 @@
 
 ---
 
-# DoboCache v0.5.2
+# DoboCache v0.6.0
 
 > **命中缓存 + 白盒报告 —— 每一步都看得见、可复算。**
 
-DoboCache 有**两种用法、共用同一套缓存内核**：**A. 以 stdio 方式挂载的 MCP Server**；**B. 本地代理 `dobostitch`**（客户端不需要支持 MCP，把 `baseURL` 指过来即可）。两者作用相同：在你已有的编码 CLI / Agent 客户端和模型厂商 API 之间，把每一次请求的上下文整理成**稳定、可复用、过长会自动补足**的前缀，从而让厂商的**前缀缓存（prompt caching）**真正命中；命中与否、命中多少、哪一步做了调整，全部写进本地白盒日志并可随时查询。
+DoboCache 有**三种用法、共用同一套缓存内核**：**A. 一条命令自动接入 `dobostitch setup`**；**B. 以 stdio 方式挂载的 MCP Server**；**C. 本地代理 `dobostitch`**（客户端不需要支持 MCP，把 `baseURL` 指过来即可）。两者作用相同：在你已有的编码 CLI / Agent 客户端和模型厂商 API 之间，把每一次请求的上下文整理成**稳定、可复用、过长会自动补足**的前缀，从而让厂商的**前缀缓存（prompt caching）**真正命中；命中与否、命中多少、哪一步做了调整，全部写进本地白盒日志并可随时查询。
 
-## 两种形态，同一套内核（v0.5.0 起）
+## 三种形态，同一套内核（v0.6.0 起）
 
 | 形态 | 启动方式 | 怎么用 | 适合谁 |
 |---|---|---|---|
-| **A. MCP Server**（原有） | `dobocache` | 在客户端的 MCP 配置里挂一个 stdio 服务，由客户端决定何时调用 `cf_*` 工具 | 客户端支持 MCP，且习惯在配置里管理工具 |
-| **B. 本地代理 `dobostitch`**（v0.5.0 新增） | `dobostitch start` | 在本机起一个本地代理，把客户端的 `baseURL` 改成代理地址，请求自动过一遍 | 客户端不支持 MCP，或不想改配置结构、只想"填个地址就能用"的人 |
+| **A. 一键接入 `setup`**（v0.6.0 新增） | `dobostitch setup` | 扫描本机 AI 客户端 → 备份后写入 MCP 入口 → `baseURL` 指到本地代理 → 注册开机自启 | 不想看配置文件、不想懂 `baseURL` 是什么的人（推荐） |
+| **B. MCP Server**（原有） | `dobocache` | 在客户端的 MCP 配置里挂一个 stdio 服务，由客户端决定何时调用 `cf_*` 工具 | 客户端支持 MCP，且习惯在配置里管理工具 |
+| **C. 本地代理 `dobostitch`**（v0.5.0 新增） | `dobostitch start` | 在本机起一个本地代理，把客户端的 `baseURL` 改成代理地址，请求自动过一遍 | 客户端不支持 MCP，或只想"填个地址就能用"、不允许程序改配置的人 |
 
-> **两条路装一个就够，不要同时装。** 它们共用同一套命中判定、同一份白盒卡片、同一套日志格式，区别只是"谁来触发"。
 
-### 最快一条路：本地代理（不改客户端任何代码）
+> **装一个就够，不要同时装。** 它们共用同一套命中判定、同一份白盒卡片、同一套日志格式，区别只是"谁来触发"。
+
+### 最快一条路：一条命令，自己接上（v0.6.0 起）
 
 ```bash
-# 1) 起代理（已能从 npm 取到该版本时用这条；取不到就解压便携包，双击 start-dobostitch.cmd）
-npx -y dobocache@0.5.2 dobostitch start
+npx -y dobocache dobostitch setup
+```
+
+它按顺序做四件事，每一步都打在屏幕上：
+
+1. 识别本机装了哪些 AI 客户端（开箱即扫，不用你指路径）；
+2. 每个客户端的配置**先备份、再改**；
+3. 写入一个「能自动带起本地代理」的 MCP 入口；
+4. 把客户端的 `baseURL` 指到本地代理，并注册开机自启（登录后自动起代理）。
+
+跑完**重启客户端**即可。不用改 `baseURL`、不用写脚本、不用另起进程。换客户端时再跑一次这条命令，已接好的会显示「已是接入状态」，幂等不重复改。
+
+想先看它会动哪些文件、改什么内容，一个字节都不写盘：
+
+```bash
+npx -y dobocache dobostitch setup --dry-run
+```
+
+跑完确认真的接上了：
+
+```bash
+npx -y dobocache dobostitch status                  # 立刻返回，并列出它识别到的客户端会话
+curl http://127.0.0.1:27880/__dobostitch/health     # 期望返回 {"ok":true,...}
+```
+
+> 端口不一定是 `27880`：以 `status` 打印或客户端里显示的为准。
+
+### 不想让它动配置：手动起代理，自己填一个地址
+
+```bash
+# 已能从 npm 取到该版本时用这条；取不到就解压便携包，双击 start-dobostitch.cmd
+npx -y dobocache@0.6.0 dobostitch start
 ```
 
 2) 终端会打印一行接入地址，形如 `接入 baseURL 填：http://127.0.0.1:27880/anthropic`（按你用的厂商换成 `/openai` 或 `/deepseek`）。
@@ -32,13 +64,6 @@ npx -y dobocache@0.5.2 dobostitch start
 curl http://127.0.0.1:27880/__dobostitch/health     # 期望返回 {"ok":true,...}
 ```
 
-**这一形态的边界（先说清楚，避免预期错位）**
-
-- 目前只在 **Windows 11 x64 真机**做过端到端验证；Linux / macOS 的代理形态**未真机验证**，不在本版承诺范围。
-- 命中率数字只在**同一厂商、同一份提示、第 2 轮请求**下成立；提示本来就稳定时，它**不带来增量，也不会让结果变差**。
-- 第 0 次请求时卡片上的命中率写「未判定（厂商未回传 usage）」，**这是正常现象，不是 0%**。
-- 探活路径是 `/__dobostitch/health`，**不是** `/health`（后者返回 404）。
-- 更细的四步操作、端口顺延规则、可选参数（`--port` / `--rewrite` / `--inject-usage` / `--token`）见包根目录 `README.md` 的「写法 D」一节。
 
 
 ### 先看硬数据：20 次连续请求对照（同一台机器、同一后端模型、同一套参数，只区分挂没挂）
@@ -103,9 +128,9 @@ DoboCache 是纯 JavaScript 的 stdio MCP Server，包内**不含任何原生二
 
 任何一处不一致，缓存就整个失效——**你以为在用缓存，其实一直在全价重算**。DoboCache 就是把这些"差一点点"逐条修掉，并且**把每一步的调整原因写清楚**，让你能自己核对而不是只看一个漂亮数字。
 
-## 二、九个可调用的工具（8 个业务工具 + 1 个 `ping` 健康检查）
+## 二、九个可调用的工具（8 个业务工具 + 1 个 `cf_ping` 健康检查）
 
-server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 stdio 本地调用，不联网、不上传：
+server 共暴露 **8 个业务工具 + 1 个健康检查（`cf_ping`）**，均为 stdio 本地调用，不联网、不上传：
 
 | 工具 | 作用 | 是否写盘 |
 |---|---|---|
@@ -124,7 +149,18 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 三、版本说明（请先读这一节）
 
-**v0.5.2 = 首屏命令修复版。上一版（v0.5.1）的文档里给用户的第一条命令 `npx -y dobocache@0.5.1 dobostitch start`，实际起的是一个 MCP server：不打印接入地址、也不报错，用户照着念会卡在第一步。本版让入口识别 `dobostitch start / status / resume / doctor` 并原样转发给代理 CLI，不带参数启动行为完全不变（仍是纯 MCP stdio server）。缓存核心、9 个工具、命中率口径与 v0.5.1 完全一致。**
+**v0.6.0 = 一键接入版（`dobostitch setup`）。** 之前所有版本都要用户自己找配置文件、自己填 `baseURL`、自己管后台进程——这三点是新手掉队最多的地方。本版把它们收成一条命令：扫描本机已装的 AI 客户端 → 逐份备份后写入 MCP 入口 → 把 `baseURL` 指到本地代理 → 注册开机自启。缓存内核、9 个工具、命中率口径与 v0.5.2 完全一致，**本版不改缓存行为**。
+
+| 项目 | 说明 |
+|---|---|
+| `dobostitch setup`（本版主体） | 新增子命令：自动定位本机**已装的 Loomy 桌面端 / opencode / Claude Code** 配置（识别不到时用 `--target generic` 打印可粘贴片段），逐个**备份后**写入 MCP 入口，并把 `baseURL` 指向本机代理（通用 opencode 只写 MCP、baseURL 不代猜） |
+| `setup --dry-run` | 只打印将要修改的文件与改动内容，不写盘；先看后改，可重复跑 |
+| 幂等 | 重复执行不会重复改；已接入的客户端显示「已是接入状态」 |
+| 开机自启 | 登录后自动拉起代理，不必留一个黑窗口 |
+| 手动形态完整保留 | `dobostitch start` + 自己填 `baseURL` 与 v0.5.2 行为一致，不想被改配置的人走这条 |
+| 口径 | **不是性能版**；缓存内核、9 个工具、命中率数字与 v0.5.2 一致 |
+
+**（历史留档）v0.5.2 = 首屏命令修复版。上一版（v0.5.1）的文档里给用户的第一条命令 `npx -y dobocache@0.5.1 dobostitch start`，实际起的是一个 MCP server：不打印接入地址、也不报错，用户照着念会卡在第一步。本版让入口识别 `dobostitch start / status / resume / doctor` 并原样转发给代理 CLI，不带参数启动行为完全不变（仍是纯 MCP stdio server）。缓存核心、9 个工具、命中率口径与 v0.5.1 完全一致。**
 
 | 项目 | 说明 |
 |---|---|
@@ -314,11 +350,23 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 > 一句话：**平时不用管它；需要证据时用 `cf_report`（不花 token），需要看单次细节时再开 `once` / `always`。**
 
-## 六、安装与挂载（三种启动写法）
+## 六、安装与挂载（写法 0 = 一条命令；A/B/C 是 MCP 挂载，D 是本地代理）
 
-1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.5.2-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
+### 写法 0：一条命令，全自动接好（v0.6.0 新增）
+
+```bash
+npx -y dobocache dobostitch setup            # 先预览：npx -y dobocache dobostitch setup --dry-run
+```
+
+扫描本机已装的 AI 客户端 → 逐个备份后写入 MCP 入口 → 把 `baseURL` 指到本地代理 → 注册开机自启。重启客户端就完事。
+
+下面的编号步骤与写法 A–D 是**手动路线**：想自己掌控每一处改动、客户端不在自动识别清单里、或者环境不允许程序改配置的，走这条。两条路线共用同一套缓存内核。
+
+**手动路线：**
+
+1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.6.0-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
-3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
+3. 重启客户端，确认工具列表里出现 **9 个**（`cf_ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
 > **前置条件**：Node.js **18 或更高**。进程启动时会自检，版本过低会直接打印一句中文提示然后退出（不会静默失效）。
 > **通用建议**：配置里的路径一律填**绝对路径**——客户端拉起 server 时不继承你 shell 的当前目录与 PATH，只写 `node` 或相对路径是最常见的翻车原因。
@@ -366,7 +414,7 @@ macOS / Linux：
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.5.2"]
+      "args": ["-y", "dobocache@0.6.0"]
     }
   }
 }
@@ -375,12 +423,12 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本能从 npm 取到（`npm view dobocache@0.5.2 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.6.0 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
 ```bash
-npm install -g dobocache@0.5.2
+npm install -g dobocache@0.6.0
 ```
 
 ```json
@@ -394,7 +442,7 @@ npm install -g dobocache@0.5.2
 ```
 
 - ⚠️ **Windows 上同样注意扩展名**：写 `"command": "dobocache.cmd"`；若客户端仍找不到命令，直接填全局安装目录下的绝对路径（`npm root -g` 显示的目录的上一级里的 `dobocache.cmd`）。
-- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.5.2 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
+- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.6.0 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
 - **适用**：一台机器长期固定使用、不想每次下载。升级时重跑 `npm install -g dobocache@<新版本>` 并重启客户端。
 
 三种写法对照：
@@ -501,7 +549,7 @@ npm install -g dobocache@0.5.2
 
 最短复现路径：
 
-1. 解压 v0.5.2 便携包，MCP 指向 `<解压目录>\dist\index.js`；
+1. 解压 v0.6.0 便携包，MCP 指向 `<解压目录>\dist\index.js`；
 2. 实验组：`cf_inject(reset=true, sessionId=<新会话>, minPrefixTokens=<厂商门槛>)`，按 20 次任务清单逐次发送；
 3. 对照组：同样任务文本，但**每次头部注入不同随机噪音**（这是关键，见下）；
 4. 每次取**第二遍**请求的厂商 usage（第一遍建缓存，第二遍才是命中读数）；

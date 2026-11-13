@@ -155,9 +155,9 @@ DoboCache 是纯 JavaScript 的 stdio MCP Server，包内**不含任何原生二
 
 任何一处不一致，缓存就整个失效——**你以为在用缓存，其实一直在全价重算**。DoboCache 就是把这些"差一点点"逐条修掉，并且**把每一步的调整原因写清楚**，让你能自己核对而不是只看一个漂亮数字。
 
-## 二、九个可调用的工具（8 个业务工具 + 1 个 `ping` 健康检查）
+## 二、九个可调用的工具（8 个 `cf_*` 业务工具 + 1 个 `cf_ping` 连通性自检）
 
-server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 stdio 本地调用，不联网、不上传：
+server 共暴露 **8 个 `cf_*` 业务工具 + 1 个连通性自检（`cf_ping`）**，均为 stdio 本地调用，不联网、不上传：
 
 | 工具 | 作用 | 是否写盘 |
 |---|---|---|
@@ -224,7 +224,7 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 |---|---|
 | 新增用法 | `dobostitch start` / `status` / `resume` / `doctor` 四个子命令；本地代理默认监听 `27880`（占用时逐个 +1 后跳，最多 10 次），按 `anthropic` / `openai` / `deepseek` 三条路由转发；`GET /__dobostitch/health` 可探活；每次请求输出一张体检卡 |
 | 新增观测 | 体检卡 A（即时摘要：命中率、输入/命中/未命中 token、这一步做了什么）、前缀诊断（第几段起变化 / 被裁掉多少段）、`data/handoff` 会话交接摘要 |
-| 未改动 | MCP Server 侧 9 个工具（`ping` + 8 业务工具）的名称、入参、返回结构；默认档位下 `cf_judge` / `cf_inject` 仍只返回 JSON、不含卡片；日志路径与脱敏规则不变 |
+| 未改动 | MCP Server 侧 9 个工具（`cf_ping` + 8 业务工具）的入参、返回结构；默认档位下 `cf_judge` / `cf_inject` 仍只返回 JSON、不含卡片；日志路径与脱敏规则不变 |
 | 默认档位 | 代理默认 `--rewrite stabilize`（规范化键序 + 工具数组重排）、`--inject-usage on`。`--rewrite off|observe|anchor` 可选，`anchor` 属实验档 |
 | 平台 | 代理形态当前**只在 Windows 做过真机端到端验证**；Linux / macOS 未做真机验证，不在本版承诺范围内 |
 | **不宣称** | 不宣称"更快 / 更强 / 优于上一版"。命中率数字全部来自 §六·写法 D 的实测表，且只在表中列出的场景、轮次与条件下成立 |
@@ -412,7 +412,7 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.6.0-portable.zip` 并解压（内含 `dist`、`src`、启动脚本与校验清单。**代理形态（写法 D）零外部依赖，解压双击即可跑，无需 `npm install`**；MCP 形态依赖 `@modelcontextprotocol/sdk`，请走写法 B / C 从 npm 安装。包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C / D 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
-3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
+3. 重启客户端，确认工具列表里出现 **9 个**（`cf_ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
 > **前置条件**：Node.js **18 或更高**。进程启动时会自检，版本过低会直接打印一句中文提示然后退出（不会静默失效）。
 > **通用建议**：配置里的路径一律填**绝对路径**——客户端拉起 server 时不继承你 shell 的当前目录与 PATH，只写 `node` 或相对路径是最常见的翻车原因。

@@ -1,4 +1,4 @@
-# DoboCache v0.5.2 · dobostitch: one cache core, two ways to mount
+# DoboCache v0.6.0 · dobostitch: one cache core, three ways to mount
 
 > **Stop paying full price twice for the same context.**
 > DoboCache keeps the prefix of your requests stable so the **provider prompt cache you are already paying for** actually hits: the first request builds the cache, every request after that is mostly served from it. Runs entirely on your machine — no network calls, no telemetry.
@@ -13,22 +13,38 @@
 
 None of this means the model is bad, and it is not really the vendor cache's fault either — **there is exactly one bottleneck: is the prefix stable?** A stable prefix already gets close to 99% on its own. DoboCache makes that happen on every request instead of by luck, and writes down what it did at each step so you can check it yourself instead of trusting a pretty number.
 
-### 30-second start (no MCP, no client code changes, one command)
+### 30-second start (one command, it wires itself up)
 
 ```bash
-npx -y dobocache@0.5.2 dobostitch start
+npx -y dobocache dobostitch setup
 ```
 
-The terminal prints a line like `接入 baseURL 填：http://127.0.0.1:27880/anthropic` (use `/openai` or `/deepseek` for those vendors). Paste that into your client's **baseURL** — keys, model names and request bodies stay untouched — then work as usual. A health card shows up in the terminal, and from the **2nd request** on it carries the hit percentage.
+It does four things and prints every step:
+
+1. Finds the AI clients installed on this machine (no paths to type);
+2. Backs up each client's config, then edits it;
+3. Drops in an MCP entry that can bring the local proxy up by itself;
+4. Points the client's `baseURL` at the local proxy and registers autostart at login.
+
+Restart your client afterwards. No `baseURL` editing, no scripts, no background window to babysit. Run the same command again when you add another client — anything already wired reports "already connected" and is not rewritten.
+
+Want to see which files it would touch, without writing a byte?
+
+```bash
+npx -y dobocache dobostitch setup --dry-run
+```
 
 Is it alive?
 
 ```bash
+npx -y dobocache dobostitch status                  # returns immediately, lists the client sessions it found
 curl http://127.0.0.1:27880/__dobostitch/health     # expect {"ok":true,...}
 ```
 
+> The port is not necessarily `27880` — trust what `status` prints.
+
+- Prefer to do it by hand (nothing touched but one `baseURL`): `npx -y dobocache@0.6.0 dobostitch start`, then paste the printed address into your client's **baseURL** — keys, model names and request bodies stay untouched. Full four steps, port fallback and optional flags → [§6 · Mode D](#mode-d-dobostitch-local-proxy-no-client-code-changes).
 - Unpacked the release zip? Just double-click `start-dobostitch.cmd` (Windows, no `npm install` needed).
-- Full four steps, port fallback and the optional flags → [§6 · Mode D](#mode-d-dobostitch-local-proxy-no-client-code-changes).
 - Never used a terminal? Start with the [3-minute zero-background guide](https://github.com/dobo123123/dobocache/blob/main/release/零基础三分钟上手.md).
 - Your client speaks MCP? The MCP server shape (`dobocache`, 9 tools) is still there, unchanged.
 
@@ -54,16 +70,15 @@ Three boundaries, in plain words: these numbers hold **only** for the same vendo
 
 DoboCache is an **MCP server mounted over stdio**. It sits between your coding CLI / agent client and the model vendor's API, and turns each request's context into a **stable, reusable prefix that is automatically topped up when it falls below the vendor's minimum cache threshold**. Whether the cache hit, how much it hit, and what DoboCache changed along the way are all written to a local white-box log you can read at any time.
 
-### Two shapes, one core (new in v0.5.0)
+### Three shapes, one core (v0.6.0)
 
-Same cache core, two ways to mount it. **Install one, not both.**
+Same cache core, three ways to mount it. **Install one, not all three.**
 
 | Shape | Command | How to use | Pick it if |
 |---|---|---|---|
-| **A. MCP server** (unchanged) | `dobocache` | Mount a stdio server in the client's MCP config; the client decides when to call the `cf_*` tools | Your client speaks MCP and you want it to drive the bookkeeping |
-| **B. Local proxy `dobostitch`** (new) | `dobostitch start` | Start a local proxy, then point the client's `baseURL` at it; every request flows through unchanged apart from prefix normalisation | You want it to just work, without touching client code or needing MCP support |
-
-Both shapes share the same hit detection, the same per-request card and the same log format — the only difference is *who triggers* them.
+| **A. One-command setup** (new in v0.6.0) | `dobostitch setup` | Scans local AI clients, backs up and wires their configs, points `baseURL` at the local proxy, registers autostart | You do not want to read config files or learn what `baseURL` means (recommended) |
+| **B. MCP server** (unchanged) | `dobocache` | Mount a stdio server in the client's MCP config; the client decides when to call the `cf_*` tools | Your client speaks MCP and you want it to drive the bookkeeping |
+| **C. Local proxy `dobostitch`** (new in v0.5.0) | `dobostitch start` | Start a local proxy, then point the client's `baseURL` at it; every request flows through unchanged apart from prefix normalisation | The client cannot speak MCP, or you refuse to let a tool rewrite your config |
 
 - Default port `27880`; if it is taken the proxy drifts **+1 at a time** (up to 10 times). Always use the address the process prints.
 - Health probe: `GET /__dobostitch/health` (not `/health`).
@@ -132,9 +147,9 @@ Every major vendor API offers prompt caching: if the beginning of a request is b
 
 Any single mismatch invalidates the whole cached prefix — **you believe you are using the cache while every request is recomputed at full rate**. DoboCache fixes these "almost identical" gaps one by one, and **records the reason for every adjustment**, so you can verify the work instead of trusting a single good-looking number.
 
-## 2. The nine tools you can call (8 business tools + `ping`)
+## 2. The nine tools you can call (8 business tools + `cf_ping`)
 
-The server exposes **8 business tools plus one health check (`ping`)**. All of them run locally over stdio — no network calls, no uploads:
+The server exposes **8 business tools plus one health check (`cf_ping`)**. All of them run locally over stdio — no network calls, no uploads:
 
 | Tool | Purpose | Writes to disk |
 |---|---|---|
@@ -153,7 +168,18 @@ Typical call: `cf_inject(reset=true, sessionId=<your-session>, minPrefixTokens=<
 
 ## 3. Release notes (read this first)
 
-**v0.5.2 = first-screen command fix. In the previous release (v0.5.1) the very first command the docs gave users was `npx -y dobocache dobostitch start` pinned to that version; it actually started an MCP server: it never printed the baseURL, never errored, and left users stuck on step one. This release makes the entry point recognise `dobostitch start / status / resume / doctor` and forward them verbatim to the proxy CLI; running with no arguments behaves exactly as before (a pure MCP stdio server). The caching core, the 9 tools and every hit-rate figure are identical to v0.5.1.**
+**v0.6.0 = one-command adoption (`dobostitch setup`).** Every earlier release left three chores to the user: find the config file, edit `baseURL`, keep a process alive. Those three are exactly where newcomers fall off. This release collapses them into one command: scan the AI clients installed here → back up each config → write an MCP entry that bootstraps the local proxy → point `baseURL` at it → register autostart at login. The caching core, the 9 tools and every hit-rate figure are unchanged from v0.5.2; **this is not a performance release**.
+
+| Item | Detail |
+|---|---|
+| `dobostitch setup` (the point of this release) | New subcommand: locates **already-installed Loomy desktop / opencode / Claude Code** configs on this machine (`--target generic` prints a paste-ready snippet for anything else), **backs each one up**, writes the MCP entry, and points `baseURL` at the local proxy (generic opencode gets the MCP entry only — its `baseURL` is not guessed) |
+| `setup --dry-run` | Prints the files it would touch and the exact changes, writes nothing; run it first, then run it for real |
+| Idempotent | Re-running does not rewrite anything; already-wired clients report "already connected" |
+| Autostart | The proxy comes up at login — no console window left open |
+| Manual shape kept intact | `dobostitch start` plus your own `baseURL` behaves exactly as in v0.5.2, for people who do not want their configs touched |
+| Claim policy | **Not a performance release**; caching core, 9 tools and hit-rate figures identical to v0.5.2 |
+
+**(Historical, kept for reference) v0.5.2 = first-screen command fix. In the previous release (v0.5.1) the very first command the docs gave users was `npx -y dobocache dobostitch start` pinned to that version; it actually started an MCP server: it never printed the baseURL, never errored, and left users stuck on step one. This release makes the entry point recognise `dobostitch start / status / resume / doctor` and forward them verbatim to the proxy CLI; running with no arguments behaves exactly as before (a pure MCP stdio server). The caching core, the 9 tools and every hit-rate figure are identical to v0.5.1.**
 
 | Item | Detail |
 |---|---|
@@ -338,11 +364,23 @@ The white-box report card is written **into the conversation context**, which co
 | `once` | Once, then auto-back to `quiet` | one-off | "did it actually work?" |
 | `always` | Every call | ~300+ each | running controlled experiments and reading every request |
 
-## 6. Install and mount (four ways: A/B/C are MCP mounts, D is the local proxy)
+## 6. Install and mount (Mode 0 = one command; A/B/C are MCP mounts, D is the local proxy)
 
-1. Unzip `dobocache-v0.5.2-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
+### Mode 0: one command, all wiring done for you (v0.6.0)
+
+```bash
+npx -y dobocache dobostitch setup            # preview first: npx -y dobocache dobostitch setup --dry-run
+```
+
+Scans the AI clients installed here, backs up each config, writes the MCP entry, points `baseURL` at the local proxy and registers autostart. Restart your client and you are done.
+
+The numbered steps and Modes A–D below are the **manual** route — keep them if you want to decide every byte yourself, if your client is not on the auto-detect list, or if policy forbids a tool editing your configs. Both routes share one cache core.
+
+**Manual route:**
+
+1. Unzip `dobocache-v0.6.0-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
 2. Add a **stdio** MCP server in your client's config (pick one of A / B / C below — or skip MCP entirely and use **Mode D**, which needs no client config JSON at all);
-3. Restart the client and confirm **9 tools** appear (`ping` plus `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`). A missing tool means the server did not start — check the client log for the server's stderr.
+3. Restart the client and confirm **9 tools** appear (`cf_ping` plus `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`). A missing tool means the server did not start — check the client log for the server's stderr.
 
 > **Prerequisite**: Node.js **18 or newer**. The process self-checks at startup and, if the version is too old, prints one plain-language message and exits (no silent failure).
 > **General advice**: always put **absolute paths** in the config. Clients do not hand your shell's working directory or PATH to the spawned server, and a bare `node` or a relative path is the single most common cause of failure.
@@ -388,7 +426,7 @@ macOS / Linux:
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.5.2"]
+      "args": ["-y", "dobocache@0.6.0"]
     }
   }
 }
@@ -397,12 +435,12 @@ macOS / Linux:
 - ⚠️ **On Windows you must write `npx.cmd`** (`"command": "npx.cmd"`). npm installs only `npx.cmd` on Windows — there is no `npx.exe` — so a client calling `spawn("npx")` fails with `ENOENT`. This is the most frequent MCP-on-Windows error.
 - On macOS / Linux keep `npx`; if the client spawns through a non-login shell whose PATH lacks node, use an absolute path such as `/usr/local/bin/npx`.
 - **Use when**: you want automatic version tracking, the machine is online, and you would rather not extract a zip.
-- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.5.2 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
+- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.6.0 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
 
 ### Mode C: global install, call the command directly
 
 ```bash
-npm install -g dobocache@0.5.2
+npm install -g dobocache@0.6.0
 ```
 
 ```json
@@ -416,7 +454,7 @@ npm install -g dobocache@0.5.2
 ```
 
 - ⚠️ **Same extension caveat on Windows**: write `"command": "dobocache.cmd"`. If the client still cannot find it, use the absolute path of the installed launcher (the `dobocache.cmd` inside the directory whose parent `npm root -g` reports).
-- **macOS / Linux permission errors**: `npm install -g dobocache@0.5.2 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
+- **macOS / Linux permission errors**: `npm install -g dobocache@0.6.0 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
 - **Use when**: one machine, long-term use, no repeated downloads. Upgrade by re-running `npm install -g dobocache@<new version>` and restarting the client.
 
 Comparison:
@@ -459,7 +497,7 @@ Modes A / B / C all assume your client speaks MCP and an agent decides when to c
 **1. Start the proxy** (any one source):
 
 ```bash
-npx -y dobocache@0.5.2 dobostitch start        # if npm already serves this version
+npx -y dobocache@0.6.0 dobostitch start        # if npm already serves this version
 dobostitch start                                # after a global install
 ```
 

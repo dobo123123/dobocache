@@ -1,8 +1,8 @@
 # Show: a local MCP proxy that keeps your prompt prefix stable, and logs every step
 
-**Repo:** https://github.com/dobo123123/dobocache · **Release v0.5.2:** https://github.com/dobo123123/dobocache/releases/tag/v0.5.2 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
+**Repo:** https://github.com/dobo123123/dobocache · **Release v0.6.0:** https://github.com/dobo123123/dobocache/releases/tag/v0.6.0 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
 
-*An open-source, fully local tool for coding CLIs / agent clients — mount it as a **stdio MCP server** or as a **local proxy**. No network calls, no telemetry, no sign-up.*
+*An open-source, fully local tool for coding CLIs / agent clients — **one command to wire it up**, or mount it manually as a **stdio MCP server** / **local proxy**. No network calls, no telemetry, no sign-up.*
 
 **TL;DR** — Prompt caching only pays off if your request prefix is byte-identical across requests. Mine almost never was. This tool rebuilds the prefix, aligns it to cache block boundaries, and writes a whitebox log of exactly what it changed. 20-request A/B: control group 0.00% cache hit (20/20 requests at zero), test group mean 98.59% (range 96.08%–99.79%, 0/20 requests at zero).
 
@@ -33,24 +33,32 @@ Three actions, all logged:
 
 Plus `cf_report` (cumulative stats), `cf_meter` (usage snapshot), `cf_normalize` (normalize content, returns a content-free fingerprint).
 
-Two ways to mount it, one shared core (since v0.5.0):
+Three ways to mount it, one shared core. **As of v0.6.0 the fastest one wires itself up:**
+
+```bash
+npx -y dobocache dobostitch setup --dry-run   # preview: which files, which line, nothing written
+npx -y dobocache dobostitch setup             # apply
+```
+
+It finds the clients you **actually have** installed (**Loomy desktop / opencode / Claude Code**), backs up each config (`*.bak_<timestamp>_before-dobocache`), writes the MCP entry, points `baseURL` at the local proxy and registers autostart. Anything else: `npx -y dobocache dobostitch attach --target generic` prints a paste-ready snippet. Undo everything with `attach --revert` + `autostart disable`.
 
 | Mount | How | Best for |
 |---|---|---|
-| **A. stdio MCP** (original) | Point the client's MCP config at `dist/index.js` | Clients that speak MCP |
-| **B. Local proxy `dobostitch`** (new in v0.5.0) | Start a local proxy, point the client's `baseURL` at it | Clients **without** MCP support, or people who don't want to restructure their config |
+| **A. One-command `setup`** (new in v0.6.0) | One `npx` command: detect → back up → write MCP → set baseURL → autostart | People who don't want to hunt for config files |
+| **B. stdio MCP** (original) | Point the client's MCP config at `dist/index.js` | Clients that speak MCP |
+| **C. Local proxy `dobostitch`** (new in v0.5.0) | Start a local proxy, point the client's `baseURL` at it | Clients **without** MCP support, or anyone who won't restructure their config |
 
-B is the only option for clients that can't do MCP — and it requires **no config file editing at all**:
+C is the only option for clients that can't do MCP — and it requires **no config file editing at all**:
 
 ```bash
-npx -y dobocache@0.5.2 dobostitch start
+npx -y dobocache@0.6.0 dobostitch start
 # or unzip the portable build and double-click start-dobostitch.cmd
 # the terminal prints: 接入 baseURL 填：http://127.0.0.1:27880/anthropic
 ```
 
 Paste that URL into the client's **baseURL** (swap the prefix for your vendor: `/anthropic`, `/openai`, `/deepseek`). Key, model name and request body stay untouched. From the **2nd request** on, the terminal card shows the hit-rate percentage; the first requests read "未判定 (vendor did not return usage)" — that's expected, not 0%. Liveness check: `http://127.0.0.1:27880/__dobostitch/health` (note: **not** `/health`).
 
-Stated boundaries, same as always: the proxy path is verified on **Windows 11 hardware only**; Linux/macOS unverified. **Install one, not both.**
+Stated boundaries, same as always: **auto-wiring covers only those 3 client types** (we don't guess other clients' paths — a wrong guess is worse than none); the proxy path is verified on **Windows 11 hardware only**; Linux/macOS unverified. **Install one, not both** — re-running `setup` on an already-wired file is a no-op.
 
 ## 3. The 20-request A/B
 
@@ -189,6 +197,6 @@ Counter-examples welcome. If your control group hits heavily *without* noise inj
 
 **Want to try it?** The step-by-step setup guide (Chinese, beginner level, `零基础三分钟上手.md`) lives in [`release/`](https://github.com/dobo123123/dobocache/tree/main/release) — six steps from installing Node to verifying success. If you hit an error, the FAQ section there lists 13 common install failures indexed by the exact error message.
 
-Direct download: [dobocache-v0.5.2-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.5.2/dobocache-v0.5.2-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
+Direct download: [dobocache-v0.6.0-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.6.0/dobocache-v0.6.0-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
 
 *Generated with AI assistance; for reference only.*
