@@ -1,8 +1,25 @@
-# DoboCache v0.4.9
+# DoboCache v0.5.0
 
 > **Cache hits you can see — and a white-box report for every step.**
 
 DoboCache is an **MCP server mounted over stdio**. It sits between your coding CLI / agent client and the model vendor's API, and turns each request's context into a **stable, reusable prefix that is automatically topped up when it falls below the vendor's minimum cache threshold**. Whether the cache hit, how much it hit, and what DoboCache changed along the way are all written to a local white-box log you can read at any time.
+
+### Two shapes, one core (new in v0.5.0)
+
+Same cache core, two ways to mount it. **Install one, not both.**
+
+| Shape | Command | How to use | Pick it if |
+|---|---|---|---|
+| **A. MCP server** (unchanged) | `dobocache` | Mount a stdio server in the client's MCP config; the client decides when to call the `cf_*` tools | Your client speaks MCP and you want it to drive the bookkeeping |
+| **B. Local proxy `dobostitch`** (new) | `dobostitch start` | Start a local proxy, then point the client's `baseURL` at it; every request flows through unchanged apart from prefix normalisation | You want it to just work, without touching client code or needing MCP support |
+
+Both shapes share the same hit detection, the same per-request card and the same log format — the only difference is *who triggers* them.
+
+- Default port `27880`; if it is taken the proxy drifts **+1 at a time** (up to 10 times). Always use the address the process prints.
+- Health probe: `GET /__dobostitch/health` (not `/health`).
+- Default `--rewrite stabilize`. `--rewrite anchor` is **experimental**: it freezes the timestamps the model sees at session start, so the model no longer sees real time.
+- No certificates, no TLS interception, no upload. Your API key stays in your own config.
+
 
 ### The hard numbers first: 20 consecutive requests, controlled (same machine, same backend model, same parameters — only mounted vs not mounted)
 
@@ -255,7 +272,7 @@ The white-box report card is written **into the conversation context**, which co
 
 ## 6. Install and mount (three launch modes)
 
-1. Unzip `dobocache-v0.4.9-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
+1. Unzip `dobocache-v0.5.0-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
 2. Add a **stdio** MCP server in your client's config (pick one of the three modes below);
 3. Restart the client and confirm **9 tools** appear (`ping` plus `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`). A missing tool means the server did not start — check the client log for the server's stderr.
 
@@ -303,7 +320,7 @@ macOS / Linux:
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.4.9"]
+      "args": ["-y", "dobocache@0.5.0"]
     }
   }
 }
@@ -312,12 +329,12 @@ macOS / Linux:
 - ⚠️ **On Windows you must write `npx.cmd`** (`"command": "npx.cmd"`). npm installs only `npx.cmd` on Windows — there is no `npx.exe` — so a client calling `spawn("npx")` fails with `ENOENT`. This is the most frequent MCP-on-Windows error.
 - On macOS / Linux keep `npx`; if the client spawns through a non-login shell whose PATH lacks node, use an absolute path such as `/usr/local/bin/npx`.
 - **Use when**: you want automatic version tracking, the machine is online, and you would rather not extract a zip.
-- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.4.9 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
+- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.5.0 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
 
 ### Mode C: global install, call the command directly
 
 ```bash
-npm install -g dobocache@0.4.9
+npm install -g dobocache@0.5.0
 ```
 
 ```json
@@ -331,7 +348,7 @@ npm install -g dobocache@0.4.9
 ```
 
 - ⚠️ **Same extension caveat on Windows**: write `"command": "dobocache.cmd"`. If the client still cannot find it, use the absolute path of the installed launcher (the `dobocache.cmd` inside the directory whose parent `npm root -g` reports).
-- **macOS / Linux permission errors**: `npm install -g dobocache@0.4.9 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
+- **macOS / Linux permission errors**: `npm install -g dobocache@0.5.0 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
 - **Use when**: one machine, long-term use, no repeated downloads. Upgrade by re-running `npm install -g dobocache@<new version>` and restarting the client.
 
 Comparison:

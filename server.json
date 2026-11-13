@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.dobo123123/dobocache",
   "title": "DoboCache",
-  "description": "MCP server for LLM prompt-cache observability: prefix diagnostics and per-call white-box report.",
-  "version": "0.4.9",
+  "description": "DoboCache / dobostitch - MCP server plus local proxy for LLM prompt-cache observability: prefix diagnostics and per-call white-box report.",
+  "version": "0.5.0",
   "websiteUrl": "https://github.com/dobo123123/dobocache",
   "repository": {
     "url": "https://github.com/dobo123123/dobocache",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "dobocache",
-      "version": "0.4.9",
+      "version": "0.5.0",
       "transport": {
         "type": "stdio"
       },

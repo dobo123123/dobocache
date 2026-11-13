@@ -2,11 +2,25 @@
 
 ---
 
-# DoboCache v0.4.9
+# DoboCache v0.5.0 · dobostitch 本地代理同步上线
 
 > **命中缓存 + 白盒报告 —— 每一步都看得见、可复算。**
 
 DoboCache 是一个以 **stdio 方式挂载的 MCP Server**，作用是在你已有的编码 CLI / Agent 客户端和模型厂商 API 之间，把每一次请求的上下文整理成**稳定、可复用、过长会自动补足**的前缀，从而让厂商的**前缀缓存（prompt caching）**真正命中；命中与否、命中多少、哪一步做了调整，全部写进本地白盒日志并可随时查询。
+
+### 两种形态，同一套内核（v0.5.0 起）
+
+同一个缓存内核，两种用法，**选一种装就行，不用都装**：
+
+| 形态 | 命令 | 怎么用 | 适合谁 |
+|---|---|---|---|
+| **A. MCP Server**（原有形态，保留不变） | `dobocache` | 在客户端的 MCP 配置里挂一个 stdio server，由客户端调用 `cf_*` 系列工具 | 客户端支持 MCP、希望由 Agent 自己决定何时整理前缀 |
+| **B. 本地代理 `dobostitch`**（v0.5.0 新增） | `dobostitch start` | 在本机起一个本地代理，把客户端的 `baseURL` 改成代理地址，请求自动过一遍 | 想"装上就能用"、不想改客户端代码的人 |
+
+两种形态共用同一套命中判定、同一套白盒卡片、同一套日志口径，区别只在**谁触发**：形态 A 靠客户端调用工具，形态 B 靠请求自然流经代理。
+形态 B 的接入步骤见 [§六 · 写法 D](#写法-ddobostitch-本地代理不用改客户端代码)。
+
+> 形态 B 不装证书、不解密、不上报，密钥仍在你自己的配置文件里；它的默认改写档位是 `stabilize`（规范化 + 工具顺序重排）。`anchor` 是**实验档**，会让模型看到的时间停在会话开始那一刻，详见 [§十 已知限制](#十已知限制与不承诺项)。
 
 ### 先看硬数据：20 次连续请求对照（同一台机器、同一后端模型、同一套参数，只区分挂没挂）
 
@@ -91,14 +105,27 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 三、版本说明（请先读这一节）
 
-**v0.4.9 = 发布通道切换版。npm 已公告自 2027-01 起限制「可绕过 2FA 的长寿命 token」直接发布，本版把发布通道整体切到 GitHub Actions OIDC Trusted Publishing：打 tag 时由 GitHub 签发短期令牌、npm 侧校验后直接收包，仓库与其设置里不再存放任何发布密钥，产物附带 provenance 签名、可追溯到具体 commit 与工作流运行。代码与缓存核心零改动，行为与 v0.4.8 逐字节一致。**
+**v0.5.0 = 双形态版（新增「本地代理」用法）。** 客户端不需要支持 MCP、也不用改一行代码，只要把 `baseURL` 指向本机起的代理，请求就会经过同一套前缀整理与命中判定；原有的 MCP Server 形态、9 个工具的定义与返回格式**全部保留不变**。本版只增加了一种用法，不代表命中行为发生变化。
+
+| 项目 | 说明 |
+|---|---|
+| 新增用法 | `dobostitch start` / `status` / `resume` / `doctor` 四个子命令；本地代理默认监听 `27880`（占用时逐个 +1 后跳，最多 10 次），按 `anthropic` / `openai` / `deepseek` 三条路由转发；`GET /__dobostitch/health` 可探活；每次请求输出一张体检卡 |
+| 新增观测 | 体检卡 A（即时摘要：命中率、输入/命中/未命中 token、这一步做了什么）、前缀诊断（第几段起变化 / 被裁掉多少段）、`data/handoff` 会话交接摘要 |
+| 未改动 | MCP Server 侧 9 个工具（`ping` + 8 业务工具）的名称、入参、返回结构；默认档位下 `cf_judge` / `cf_inject` 仍只返回 JSON、不含卡片；日志路径与脱敏规则不变 |
+| 默认档位 | 代理默认 `--rewrite stabilize`（规范化键序 + 工具数组重排）、`--inject-usage on`。`--rewrite off|observe|anchor` 可选，`anchor` 属实验档 |
+| 平台 | 代理形态当前**只在 Windows 做过真机端到端验证**；Linux / macOS 未做真机验证，不在本版承诺范围内 |
+| **不宣称** | 不宣称"更快 / 更强 / 优于上一版"。命中率数字全部来自 §六·写法 D 的实测表，且只在表中列出的场景、轮次与条件下成立 |
+
+---
+
+**v0.4.9（上一版）= 发布通道切换版。npm 已公告自 2027-01 起限制「可绕过 2FA 的长寿命 token」直接发布，本版把发布通道整体切到 GitHub Actions OIDC Trusted Publishing：打 tag 时由 GitHub 签发短期令牌、npm 侧校验后直接收包，仓库与其设置里不再存放任何发布密钥，产物附带 provenance 签名、可追溯到具体 commit 与工作流运行。代码与缓存核心零改动，行为与 v0.4.8 逐字节一致。**
 
 | 项目 | 说明 |
 |---|---|
 | 承接 | v0.4.7 的日志边界（单文件 10MB 轮转 + 默认保留 7 天）、`cf_report` 的 `source="disk"` 读盘聚合、`cf_prune` 口径澄清全部保留；更早的 v0.4.4 `minPrefixTokens` 修复与日志隐私脱敏（`requestId` → `req-<8 位 hash>`；`sessionId` → `sid-<8 位 hash>`；`cf_normalize` 键 → `nk-<16 位 hash>`）也仍在 |
 | 本版改动 | ① **对照图不再破图**：两张对照图（命中率对照 / 三种请求端形态）改用 `raw.githubusercontent.com` 绝对地址，npm 包页面可直接显示出来；② **文档链接不再 404**：根 README 里 9 处指向包内文档的相对链接（零基础上手 / FAQ / 兼容性说明 / SECURITY / LICENSE / 英文版 / 中文版）改为 GitHub 绝对地址，在 npm 页面上点击即可跳转；③ **便携包内文档保持原样**：`release/README.zh.md`、`README.en.md` 继续用同目录相对路径——包内文档与图同目录，解压后离线也能看，两套路径各司其职 |
 | 命中相关代码 | **无代码改动**。缓存核心（前缀冻结 / 对齐 / 分级准入 / 判定逻辑）与 v0.4.7 一致，`dist` 行为逐字节相同，仅 `serverInfo.version` 随版本号更新；默认档位下 `cf_judge` / `cf_inject` 返回**只有一段 JSON、不含卡片** |
-| 冒烟验证 | MCP stdio 冒烟通过（2026-11-07 本机 win32 实跑）：`serverInfo.version = 0.4.9`、`protocolVersion = 2024-11-05`、9 工具齐全（`ping`/`cf_judge`/`cf_tier`/`cf_inject`/`cf_meter`/`cf_warmup`/`cf_report`/`cf_prune`/`cf_normalize`）、`cf_judge` 真实调用落盘成功（`dobocache-2026-11-07.log.jsonl`）、`cf_report` 返回 `logDir` / `logDirSource`（实测 `calls=1`、`hitRate=80`） |
+| 冒烟验证 | MCP stdio 冒烟通过（2026-11-07 本机 win32 实跑）：`serverInfo.version = 0.5.0`、`protocolVersion = 2024-11-05`、9 工具齐全（`ping`/`cf_judge`/`cf_tier`/`cf_inject`/`cf_meter`/`cf_warmup`/`cf_report`/`cf_prune`/`cf_normalize`）、`cf_judge` 真实调用落盘成功（`dobocache-2026-11-07.log.jsonl`）、`cf_report` 返回 `logDir` / `logDirSource`（实测 `calls=1`、`hitRate=80`） |
 | 测试 | **95 / 95 通过**；`tsc --noEmit` 零报错；`eslint src test` 零告警 |
 | 平台验证 | **Windows 真机端到端已验证**；**Linux 已在 `linux/amd64` 容器内实测运行**（协议链路 / 9 工具 / 日志分支 / 只读降级 / Node 版本自检，见「平台支持状态」与 `release/兼容性说明.md`）；macOS 侧 CI 在 Apple Silicon 与 Intel 真机跑通冒烟链路（握手 / 9 工具 / 日志目录 / 构建与单测），**桌面客户端长会话未实测** |
 | **不宣称** | 本版**不是性能提升版，也不是功能版**。命中率与 v0.4.7 / v0.4.4 完全相同，请勿把本文任何数字读成「新版本更高」 |
@@ -212,7 +239,7 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 ## 五、白盒报告：每一步都看得见
 
-每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.4.9）输出的记录示例：
+每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.5.0）输出的记录示例：
 
 ```json
 {
@@ -263,9 +290,9 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 > 一句话：**平时不用管它；需要证据时用 `cf_report`（不花 token），需要看单次细节时再开 `once` / `always`。**
 
-## 六、安装与挂载（三种启动写法）
+## 六、安装与挂载（四种写法：A/B/C 是 MCP 挂载，D 是本地代理）
 
-1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.4.9-portable.zip` 并解压（内含 `dist` 与**仅生产依赖**的 `node_modules`，无需 `npm install`；包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C 从 npm 装**；
+1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobostitch-handoff-v0.5.0.zip` 并解压（内含 `dist`、`src`、启动脚本与校验清单。**代理形态（写法 D）零外部依赖，解压双击即可跑，无需 `npm install`**；MCP 形态依赖 `@modelcontextprotocol/sdk`，请走写法 B / C 从 npm 安装。包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C / D 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
 3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
@@ -315,7 +342,7 @@ macOS / Linux：
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.4.9"]
+      "args": ["-y", "dobocache@0.5.0"]
     }
   }
 }
@@ -324,12 +351,12 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本能从 npm 取到（`npm view dobocache@0.4.9 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.5.0 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
 ```bash
-npm install -g dobocache@0.4.9
+npm install -g dobocache@0.5.0
 ```
 
 ```json
@@ -343,7 +370,7 @@ npm install -g dobocache@0.4.9
 ```
 
 - ⚠️ **Windows 上同样注意扩展名**：写 `"command": "dobocache.cmd"`；若客户端仍找不到命令，直接填全局安装目录下的绝对路径（`npm root -g` 显示的目录的上一级里的 `dobocache.cmd`）。
-- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.4.9 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
+- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.5.0 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
 - **适用**：一台机器长期固定使用、不想每次下载。升级时重跑 `npm install -g dobocache@<新版本>` 并重启客户端。
 
 三种写法对照：
@@ -389,6 +416,77 @@ npm install -g dobocache@0.4.9
 | `CACHEFORGE_LOG_DIR` / `CACHEFORGE_HIT_PRICE_PER_M` / `CACHEFORGE_MISS_PRICE_PER_M` / `CACHEFORGE_WHITEBOX` | 旧名兼容别名 | — | 改名前的变量名仍可用；同名时 `DOBOCACHE_*` 优先 |
 
 > **计价系数请自行改为你的实际合同系数**：随包默认值只用于「命中 vs 未命中」的**相对值对比**（例如 1:36 的差异），不是任何厂商的真实报价，`savedUsd` / `cumSavedUsd` 等字段名里的 `Usd` 只是历史命名，数值含义是"按当前计价系数折算的相对成本"。改系数后统计曲线整体等比缩放，命中率不受影响。
+
+### 写法 D：`dobostitch` 本地代理（不用改客户端代码）
+
+A / B / C 三种都是 **MCP 挂载**——前提是客户端支持 MCP，且由它主动调用工具。写法 D 换了个位置：**代理坐在客户端和模型厂商之间**，客户端只把 `baseURL` 改成代理地址，密钥、模型名、请求内容一个字不动。客户端支不支持 MCP 都无所谓。
+
+**1. 起代理**（三种来源任选）
+
+```bash
+npx -y dobocache@0.5.0 dobostitch start        # 已能从 npm 取到该版本时
+dobostitch start                                # 全局安装后直接调命令
+```
+
+解压了发布包的话，直接双击 `start-dobostitch.cmd` 即可（Windows，无需 `npm install`）。
+
+启动后会打印你要填的地址，**以它打印的那一行、那一版端口为准**：
+
+```
+接入 baseURL 填：http://127.0.0.1:27880/anthropic（按厂商换前缀）
+```
+
+端口默认 `27880`；被占用时**逐个 +1 顺延**（`27881`、`27882`…，最多顺延 10 次），打印出来的地址会同步变成新端口，**以终端打印为准，不要凭记忆写**。
+
+**2. 按客户端所属方言选前缀**
+
+| 客户端方言 | baseURL 填 |
+|---|---|
+| Anthropic 系 | `http://127.0.0.1:27880/anthropic` |
+| OpenAI 系 | `http://127.0.0.1:27880/openai` |
+| DeepSeek 官方 | `http://127.0.0.1:27880/deepseek` |
+
+不同客户端对末尾要不要带 `/v1` 要求不同，按客户端文档填；报 404 就补一个再试。
+
+**3. 可选参数**
+
+| 参数 | 默认 | 作用 |
+|---|---|---|
+| `--port <端口>` | `27880` | 换监听端口 |
+| `--rewrite <off\|observe\|stabilize\|anchor>` | `stabilize` | 改写档位：`off` 只转发不改；`observe` 只看不改、用于对照；`stabilize` 规范化键序 + 重排工具数组；`anchor` 再加时间字面量锚定（**实验档**） |
+| `--inject-usage <on\|off>` | `on` | OpenAI 方言流式请求自动补 `stream_options.include_usage`，否则多半拿不到 usage、命中率只能写"未判定" |
+| `--token <值>` / `--require-token` | 关 | 给本机代理加一层入口校验，多用户机器上建议开 |
+
+**4. 验证它活着**：浏览器打开 `http://127.0.0.1:27880/__dobostitch/health`（端口按实际改），返回 JSON 且含 `"ok": true` 与 `rewriteMode` 字段即正常；里面还会列出三条路由各自的上游域名。
+
+**5. 验证它生效**：照常提一个问题，终端里会出现一张卡片
+
+```
+【DoboCache 体检卡 A】第 1 次请求 · <厂商>（<方言>）
+上游：<host>（路由 /anthropic）
+输 ...
+```
+
+第二轮起看卡片上的命中百分比。**第一次请求命中率必然很低**——缓存要等厂商把这一轮的前缀写进去。
+
+**实测（同一份约 1.4 万 token 系统提示 + 12 个工具定义，两臂字节级同源，取第 2 轮）**
+
+| 场景 | 直连 | 经代理 | 增量 |
+|---|---|---|---|
+| S1 静态基线（两轮请求体完全相同） | 98.99% | 98.99% | **0.00 pp** |
+| S2 时间戳抖动（提示内含"当前时间：…"，两轮取值不同） | 0.00% | **98.85%** | **+98.85 pp** |
+| S3 结构抖动（字段顺序与工具数组顺序被打乱） | 87.39% | **98.98%** | **+11.59 pp** |
+
+> 三个数字的边界，请连着读：只在**同一厂商、同一份提示、第 2 轮**成立；"提升了 98.85 个百分点"不等于"命中率提升了 98.85%"；S1 的 0.00 pp 是实话——提示本来就稳定时它不带来增量，**也不会让结果变差**；不折算金额。原始表格、复现脚本与逐次 usage 见 `release/` 目录下的对照实验文档，任何一行都能自己复算。
+
+**6. 必须先知道的边界**
+
+- **`anchor` 档会改变模型看到的时间**：它把提示里的时间字面量锚定到会话开始那一刻，让前缀稳定下来。代价是模型看到的时间不再随真实时间走——这是**实验能力**，不是常规能力，默认档位不开。
+- 代理形态目前**只在 Windows 做过真机端到端验证**，Linux / macOS 未做真机验证。
+- 不装证书、不解密 TLS、不联网上报；只在本地计算命中量与卡片，不缓存你的对话内容。
+- 命中率写"未判定（厂商未回传 usage）"时不是 bug，是上游没给 usage 字段——先确认 `--inject-usage` 是 `on`。
+
+---
 
 ## 七、隐私：日志里没有你的提问原文
 
@@ -450,7 +548,7 @@ npm install -g dobocache@0.4.9
 
 最短复现路径：
 
-1. 解压 v0.4.9 便携包，MCP 指向 `<解压目录>\dist\index.js`；
+1. 解压 v0.5.0 发布包，MCP 指向 `<解压目录>\dist\index.js`；
 2. 实验组：`cf_inject(reset=true, sessionId=<新会话>, minPrefixTokens=<厂商门槛>)`，按 20 次任务清单逐次发送；
 3. 对照组：同样任务文本，但**每次头部注入不同随机噪音**（这是关键，见下）；
 4. 每次取**第二遍**请求的厂商 usage（第一遍建缓存，第二遍才是命中读数）；
@@ -510,7 +608,7 @@ npm install -g dobocache@0.4.9
 
 1. **宿主写清、但不评价**：被测请求端与后端模型按可辨识写法标出——**COD-X** = Codex 系编码 CLI（后端 **GLM**）、**DSH** = DeepSeek 官方 Harness headless（后端 **DeepSeek**）、**WBX** = 自研白盒直连；写清是谁，是为了让别人能复跑，不代表我们对第三方产品做任何优劣评价；
 2. **不报金额**：只报命中率与相对比例，不含任何费用数字；
-3. **不宣称无对照的提升**：v0.4.9 是发布通道切换版，缓存核心与 v0.4.8 一致，对外表述为"命中行为与 v0.4.8 一致"；涉及版本差异时只写可复算的实测事实（抖动次数、下限、稳定段数值，见 §四「两轮 20 次同口径复跑」），不用"更高/更快/更强"这类没有对照的口径；
+3. **不宣称无对照的提升**：v0.5.0 新增的是「用法」（本地代理形态），MCP 形态的命中行为与 v0.4.9 一致；代理形态的命中率一律连场景、轮次与条件一起给出（见 §六·写法 D），不用"更高/更快/更强"这类没有对照的口径；涉及新旧差异时只写"多了哪一种用法"；
 4. **不混比**：不同实验、不同接入方式、不同厂商的数字不横向混比。
 
 

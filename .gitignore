@@ -12,3 +12,6 @@ data/**
 
 # CI smoke failure artifacts (generated locally, never committed)
 ci-smoke-artifacts/
+
+# dobostitch 交付物归位目录（局域网交接包与报告，仅本机/共享分发，不进仓库）
+handoff/

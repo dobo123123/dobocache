@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // DoboCache MCP Server 入口（v0.4.6：命中缓存 + 可开关的白盒报告）
 // 职责：注册缓存优化工具（命中判定/价值分级准入/记忆提纯注入/测量仪表/白盒报告），
 // 供任意 MCP 客户端调用。核心算法在 src/core/，不依赖任何第三方缓存实现。
@@ -26,7 +26,7 @@ if (!nodeCheck.ok) {
 const server = new McpServer(
   {
     name: "dobocache",
-    version: "0.4.9",
+    version: "0.5.0",
   },
   {
     // v0.4.4 r3：服务级说明（MCP 规范 initialize.instructions）。

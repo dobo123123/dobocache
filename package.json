@@ -1,12 +1,13 @@
 {
   "name": "dobocache",
-  "version": "0.4.9",
-  "description": "MCP server for LLM prompt-cache observability: stable prefix construction, value-tier admission, prefix-alignment checks, and a per-call white-box report. Fully local, no telemetry.",
+  "version": "0.5.0",
+  "description": "Two shapes, one core: an MCP server plus a local proxy for LLM prompt-cache observability - stable prefix construction, value-tier admission, prefix-alignment checks, and a per-call white-box report. Fully local, no telemetry.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "dobocache": "dist/index.js"
+    "dobocache": "dist/index.js",
+    "dobostitch": "dist/proxy/cli.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -25,6 +26,8 @@
     "release/零基础三分钟上手.md",
     "release/FAQ-使用须知.md",
     "release/兼容性说明.md",
+    "release/社区帖-中文.md",
+    "release/社区帖-English.md",
     "assets/",
     "release/testdata/",
     "release/scripts/",
@@ -36,9 +39,12 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:proxy": "node dist/proxy/cli.js start",
     "dev": "tsx src/index.ts",
     "lint": "eslint src test",
     "test": "vitest run",
+    "test:rewrite": "node scripts/test-rewrite.mjs",
+    "test:inject": "node scripts/test-inject-usage.mjs",
     "check:docs": "node scripts/check-docs.mjs"
   },
   "keywords": [
@@ -51,7 +57,13 @@
     "model-context-protocol",
     "prompt-cache",
     "context-engineering",
-    "token-optimization"
+    "token-optimization",
+    "local-proxy",
+    "proxy",
+    "dobostitch",
+    "claude-code",
+    "codex",
+    "observability"
   ],
   "license": "Apache-2.0",
   "author": {

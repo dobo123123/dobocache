@@ -1,5 +1,25 @@
 # DoboCache Changelog
 
+## v0.5.0（2026-11-13）— 新增「本地代理」形态 dobostitch：客户端不改代码也能用
+
+> 目标：把同一套缓存内核从「必须支持 MCP 的客户端才能用」放开到「任何能改 `baseURL` 的客户端都能用」。本版新增一种**用法**，MCP Server 形态的工具集、入参、返回结构与 v0.4.9 一致，命中行为未改动。
+
+### 新增：本地代理形态（`dobostitch`）
+1. 新增 `src/proxy/`：`cli`（命令入口）、`server`（反向代理与路由）、`rewrite`（前缀规范化 / 工具数组重排 / 时间字面量锚定）、`inject`（流式 usage 注入）、`card`（体检卡渲染）、`usage`（用量解析与命中率计算）、`handoff`（会话交接摘要）、`types`。
+2. 子命令：`dobostitch start` / `status` / `resume [sessionKey]` / `doctor`。`start` 支持 `--port`、`--token`、`--require-token`、`--rewrite <off|observe|stabilize|anchor>`、`--inject-usage <on|off>`。
+3. 路由：`/anthropic`、`/openai`、`/deepseek` 三条方言前缀；默认端口 `27880`，被占用时自动后跳；`GET /health` 返回 `rewriteMode` 等状态字段可探活。
+4. 默认档位：`--rewrite stabilize`（零语义风险的键序规范化 + 工具数组重排）、`--inject-usage on`（OpenAI 方言流式请求补 `stream_options.include_usage`，上游 4xx 明确不认时自动去掉该字段重试一次）。`anchor` 为实验档：会把模型看到的时间锚定到会话开始那一刻。
+5. 每次请求输出一张固定格式体检卡（`【DoboCache 体检卡 A】`）：命中率、输入 / 命中 / 未命中 token、前缀诊断（第几段起变化、被裁掉多少段）、本次做了什么。命中率未判定时写「未判定（厂商未回传 usage）」，不写 0%。
+6. 代理侧**零外部运行时依赖**（只用 `node:` 内置模块），发布包解压双击 `start-dobostitch.cmd` 即可运行，无需 `npm install`；MCP 形态仍依赖 `@modelcontextprotocol/sdk`。
+
+### 未改动
+7. MCP Server 侧 9 个工具（`ping` + 8 业务工具）名称、入参、返回结构不变；默认档位下 `cf_judge` / `cf_inject` 仍只返回 JSON、不含卡片；日志路径、轮转、脱敏规则不变。
+8. `package.json` 的 `files` 白名单修正：三处乱码文件名改为真实文件名（`零基础三分钟上手.md` / `FAQ-使用须知.md` / `兼容性说明.md`），并把两份社区帖纳入包内。
+
+### 边界与不宣称
+9. 代理形态当前**只在 Windows 做过真机端到端验证**；Linux / macOS 未做真机验证，不在本版承诺范围内。
+10. **不宣称「更快 / 更强 / 优于上一版」**。对外命中率数字一律连场景、轮次与条件一起给出，且不折算金额。
+
 ## v0.4.9（2026-11-07）— 发布通道切到 OIDC 免 token
 
 > 目标：npm 已公告自 2027-01 起限制「可绕过 2FA 的长寿命 token」直接发布。为免到期当天被掐断发布能力，本版把发布通道整体切到 GitHub Actions OIDC Trusted Publishing：打 tag 时由 GitHub 签发短期令牌，npm 侧校验后直接收包。**不动任何代码**，缓存核心、白盒日志、工具集与 v0.4.8 一致。
