@@ -4,7 +4,7 @@
  *
  * 覆盖两类只有"真实平台"才能证明的断言：
  *   1) MCP stdio 握手：initialize 返回 serverInfo{dobocache, <package version>}，
- *      tools/list 恰好 9 个工具（ping + 8 个 cf_*）
+ *      tools/list 恰好 9 个工具（cf_ping + 8 个 cf_*）
  *   2) 日志目录解析：
  *        macOS  -> ~/Library/Logs/DoboCache
  *        Linux  -> $XDG_STATE_HOME/dobocache（本脚本显式注入 XDG_STATE_HOME）
@@ -31,7 +31,7 @@ const SERVER_ENTRY = path.join(REPO_ROOT, "dist", "index.js");
 const ARTIFACT_DIR = path.join(REPO_ROOT, "ci-smoke-artifacts");
 
 const EXPECTED_TOOLS = [
-  "ping",
+  "cf_ping",
   "cf_judge",
   "cf_tier",
   "cf_inject",

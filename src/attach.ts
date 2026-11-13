@@ -233,14 +233,16 @@ const claudeCodeTarget: TargetDescriptor = {
     const isSettings = path.basename(file) === "settings.json";
     const json = readJson(file);
     const changes: string[] = [];
+    // 记下接入前的原始 baseURL，--revert 时才能真正「原样退回」，而不是一律清成官方默认
+    let baseURLBefore = "";
 
     if (isSettings) {
       const env = ensureIn(json, ["env"]);
       const want = `${ctx.proxyBase}/anthropic`;
       if (env.ANTHROPIC_BASE_URL !== want) {
-        const before = typeof env.ANTHROPIC_BASE_URL === "string" ? env.ANTHROPIC_BASE_URL : "";
+        baseURLBefore = typeof env.ANTHROPIC_BASE_URL === "string" ? env.ANTHROPIC_BASE_URL : "";
         env.ANTHROPIC_BASE_URL = want;
-        changes.push(`ANTHROPIC_BASE_URL: ${before || "（空）"} -> ${want}`);
+        changes.push(`ANTHROPIC_BASE_URL: ${baseURLBefore || "（空）"} -> ${want}`);
       }
     } else {
       const servers = ensureIn(json, ["mcpServers"]);
@@ -260,7 +262,13 @@ const claudeCodeTarget: TargetDescriptor = {
     }
     const bak = backup(file);
     writeJsonAtomic(file, json);
-    writeSidecar(file, { target: this.id, configPath: file, savedAt: new Date().toISOString(), changes });
+    writeSidecar(file, {
+      target: this.id,
+      configPath: file,
+      savedAt: new Date().toISOString(),
+      changes,
+      ...(baseURLBefore ? { baseURLBefore } : {}),
+    });
     return { target: this.id, label: this.label, configPath: file, status: "applied", changes, backup: bak };
   },
   revert(file, ctx) {
@@ -274,8 +282,14 @@ const claudeCodeTarget: TargetDescriptor = {
     if (path.basename(file) === "settings.json") {
       const env = ensureIn(json, ["env"]);
       if (typeof env.ANTHROPIC_BASE_URL === "string" && env.ANTHROPIC_BASE_URL.startsWith(ctx.proxyBase)) {
-        delete env.ANTHROPIC_BASE_URL;
-        changes.push("已移除 env.ANTHROPIC_BASE_URL（回到官方默认）");
+        const before = typeof sidecar.baseURLBefore === "string" ? sidecar.baseURLBefore : "";
+        if (before && !before.startsWith(ctx.proxyBase)) {
+          env.ANTHROPIC_BASE_URL = before;
+          changes.push(`ANTHROPIC_BASE_URL 复原 -> ${before}（接入前的原值）`);
+        } else {
+          delete env.ANTHROPIC_BASE_URL;
+          changes.push("已移除 env.ANTHROPIC_BASE_URL（回到官方默认）");
+        }
       }
     } else {
       const servers = asDict(json.mcpServers);

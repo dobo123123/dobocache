@@ -393,6 +393,10 @@ async function commandAttach(argv: string[]): Promise<void> {
   const applied = results.filter((result) => result.status === "applied").length;
   const failed = results.filter((result) => result.status === "error").length;
   const touched = results.some((result) => result.status === "applied" || result.status === "dry-run");
+  // 已接入状态也属于「识别到了底座」：重复执行时不能再吐 generic 片段，否则用户会以为接入失败
+  const alreadyReady = results.filter(
+    (result) => result.status === "skipped" && (result.detail ?? "").includes("已是接入状态"),
+  ).length;
 
   if (!revert && !dryRun && applied > 0 && !argv.includes("--no-autostart")) {
     const auto = enableAutostart(port);
@@ -402,7 +406,7 @@ async function commandAttach(argv: string[]): Promise<void> {
   }
 
   console.log("");
-  if (!revert && !touched) {
+  if (!revert && !touched && alreadyReady === 0) {
     console.log("[dobostitch] 没识别到可自动接入的底座，下面这段可直接粘到任意客户端：");
     console.log("");
     console.log(renderGenericSnippet(ctx, routes));
@@ -418,7 +422,9 @@ async function commandAttach(argv: string[]): Promise<void> {
       ? "[dobostitch] 预览结束，以上都没写盘；确认无误后去掉 --dry-run 再跑一次即真正接入。"
       : revert
         ? "[dobostitch] 已退回接入前状态，重启客户端即生效。"
-        : "[dobostitch] 接好了：重启客户端即可，代理会随 MCP 自动起来，不用再单独起进程。",
+        : applied > 0
+          ? "[dobostitch] 接好了：重启客户端即可，代理会随 MCP 自动起来，不用再单独起进程。"
+          : "[dobostitch] 已是接入状态，无需重复执行；直接重启客户端即可用。",
   );
 }
 

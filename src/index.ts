@@ -94,11 +94,11 @@ async function startMcpServer(): Promise<void> {
 
   // 健康检查
   server.tool(
-    "ping",
-    "DoboCache 健康检查",
+    "cf_ping",
+    "连通性自检：返回 pong: dobocache ready 表示服务已正常加载；若其他 cf_ 工具无响应，先调它排查。",
     {},
     {
-      title: "健康检查（ping）",
+      title: "连通性自检（cf_ping）",
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
