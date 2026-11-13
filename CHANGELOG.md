@@ -29,7 +29,7 @@
 13. 命中文案复核：README / 社区帖 / 描述里的"一条命令"必须与入口转发实际放行的子命令一致（见下方 P0-0）。
 
 ### 未做 / 待办
-- **P0-0（阻塞发布，归开发线）**：入口转发白名单 `PROXY_SUBCOMMANDS` 只有 `start` / `status` / `resume` / `doctor`，缺 `setup` / `attach` / `autostart`。实测 `node dist/index.js dobostitch setup --dry-run` 退出码 0 且零输出（被吞成普通参数后进 MCP stdio），即 npm 侧首屏命令 `npx -y dobocache dobostitch setup` 会**静默无反应**。`scripts/check-docs.mjs` 的 `SUBCOMMANDS` 同样是这 4 个，守卫对此盲放行，需一并补并加反向断言。
+- ~~**P0-0（阻塞发布）**~~ **已修（`422241a`）**：入口转发白名单 `PROXY_SUBCOMMANDS` 补齐 `setup` / `attach` / `autostart`（现 7 个），`node dist/index.js dobostitch setup --dry-run` 输出 `[dobostitch] 一键接入：…`、退出码 0。同时修掉守卫盲区：`scripts/check-docs.mjs` 的 `SUBCOMMANDS` 同步为 7 个，并新增**反向断言**（文档里实写的 `dobostitch <sub>` 必须在白名单内，故意回退可报 40 ERROR）；`scripts/smoke-firstrun.mjs` 增加第 ④ 条 `setup` 入口转发断言，把此 P0 变成 CI 回归。回执见 `handoff/release-kit/26-开发线回执-v0.6.0发版前置.md`。
 - `ping` 是否改名（评分卡 Naming 4/5 扣分项，改名有兼容代价）；本版不改名，理由不变。
 - `setup` 真实写入（去掉 `--dry-run`）未在本机执行，端到端证据留给用户机器；`release/兼容性说明.md` A.9.5 已如实标注。
 
