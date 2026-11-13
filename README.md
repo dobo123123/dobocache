@@ -1,3 +1,5 @@
+[![DoboCache MCP server](https://glama.ai/mcp/servers/dobo123123/dobocache/badges/card.svg)](https://glama.ai/mcp/servers/dobo123123/dobocache)
+
 **[简体中文](https://github.com/dobo123123/dobocache/blob/main/README.md) · [English](https://github.com/dobo123123/dobocache/blob/main/release/README.en.md)**
 
 ---
