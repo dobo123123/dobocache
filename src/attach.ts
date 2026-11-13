@@ -70,15 +70,6 @@ function asDict(value: unknown): Dict {
   return isDict(value) ? value : {};
 }
 
-function getIn(root: Dict, keys: string[]): unknown {
-  let cur: unknown = root;
-  for (const key of keys) {
-    if (!isDict(cur)) return undefined;
-    cur = cur[key];
-  }
-  return cur;
-}
-
 /** 取子对象，不存在则创建（父级非对象时覆盖为对象） */
 function ensureIn(root: Dict, keys: string[]): Dict {
   let cur: Dict = root;

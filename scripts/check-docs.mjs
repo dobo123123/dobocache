@@ -32,7 +32,7 @@ const DOCS = [
 ];
 
 /** 历史存在过的版本号（用于「引用了不存在的版本」检查） */
-const KNOWN_VERSIONS = ['0.3.0', '0.4.0', '0.4.1', '0.4.2', '0.4.3', '0.4.4', '0.4.6', '0.4.7', '0.4.8', '0.4.9', '0.5.0', '0.5.1', '0.5.2'];
+const KNOWN_VERSIONS = ['0.3.0', '0.4.0', '0.4.1', '0.4.2', '0.4.3', '0.4.4', '0.4.6', '0.4.7', '0.4.8', '0.4.9', '0.5.0', '0.5.1', '0.5.2', '0.6.0'];
 
 const errors = [];
 const warns = [];
@@ -224,7 +224,7 @@ for (const rel of MAIN_READMES) {
 // 本检查把「文档写法 ↔ 入口实现」的对应关系固化成断言，两边不一致就报错：
 //   · 入口有转发   → 允许 `npx -y dobocache@X dobostitch ...`
 //   · 入口没转发   → 必须写 `npx -y -p dobocache@X dobostitch ...`
-const SUBCOMMANDS = ['start', 'status', 'resume', 'doctor'];
+const SUBCOMMANDS = ['start', 'status', 'resume', 'doctor', 'setup', 'attach', 'autostart'];
 let forwardingEnabled = false;
 try {
   const entrySrc = readFileSync(join(ROOT, 'src', 'index.ts'), 'utf8');
@@ -257,6 +257,24 @@ if (forwardingEnabled) {
     for (const sub of SUBCOMMANDS) {
       if (!whitelist.includes(sub)) {
         warns.push(`[子命令] 文档/备忘里的「${sub}」不在入口转发白名单（${whitelist.join('/')}）中`);
+      }
+    }
+
+    // 反向断言（v0.6.0 新增）：文档里实际写出的 `dobostitch <sub>`，sub 必须在入口白名单内。
+    // 旧逻辑只校验「白名单 ⊇ 手抄的 SUBCOMMANDS 常量」，从不看文档真正写了什么命令，
+    // v0.6.0 的 setup 就是从这条缝漏出去的：文档写了 setup、入口白名单只放行 4 个旧命令，
+    // 用户敲 `npx -y dobocache dobostitch setup` 得到的是静默无反应（参数被吞进 MCP stdio）。
+    // 只认「命令形态」：dobostitch 后紧跟的 token 后面必须是行尾 / 反引号 / `-`（选项）/ 管道 / 分号 / 右括号，
+    // 以避开英文散文（如 "the dobostitch local proxy" 里的 local）。
+    const CMD_CALL = /dobostitch\s+([a-z]+)(?=\s*(?:`|$|-|\||;|\)))/gm;
+    for (const [rel, text] of docs) {
+      for (const hit of text.matchAll(CMD_CALL)) {
+        const sub = hit[1];
+        if (whitelist.includes(sub)) continue;
+        errors.push(
+          `[子命令不存在] ${rel} 写了 \`dobostitch ${sub}\`，但入口转发白名单只有 ${whitelist.join(' / ')}；` +
+            `用户执行会被静默吞掉。请先补 src/index.ts 的 PROXY_SUBCOMMANDS。`,
+        );
       }
     }
   }

@@ -4,7 +4,7 @@
 
 ---
 
-# DoboCache v0.5.2 · dobostitch：同一缓存内核，两种挂法
+# DoboCache v0.6.0 · dobostitch：同一缓存内核，三种挂法
 
 > **同一个会话，别为同一段上下文反复付全价。**
 > 把请求前缀稳定下来，让你已经在付费的**厂商前缀缓存（prompt caching）**真正命中：第一次请求照常建缓存，从第二次起基本按缓存价走。全程本地运行，不联网、不上报。
@@ -25,7 +25,7 @@
 npx -y dobocache dobostitch setup
 ```
 
-> **版本提示（发布后删除本行）**：`setup` 随下一个 npm 版本发布。如果你从 npm 装到的还是 `0.5.2`（还没有 `setup`），请先走下面的「手动方式（可选）」用 `dobostitch start` 起代理；新版本发出去后这一行会删掉。
+> **版本提示（发布后删除本行）**：`setup` 随 `0.6.0` 一起发布。如果此刻从 npm 装到的还是 `0.5.2`（还没有 `setup` 子命令），请先用下面的「手动方式（可选）」`dobostitch start` 起代理；`0.6.0` 上线后这一行会删掉。
 
 它按顺序做四件事，屏幕上都会打出来：
 
@@ -48,7 +48,7 @@ curl http://127.0.0.1:27880/__dobostitch/health     # 期望返回 {"ok":true,..
 - 只想手动填 `baseURL`（不走自动接入）：一条 `npx -y dobocache dobostitch start` 拿到地址后填进客户端，细节 → [§六 · 写法 D](#写法-ddobostitch-本地代理不用改客户端代码)
 - 已解压发布包：双击 `start-dobostitch.cmd` 即可（Windows，无需 `npm install`）
 - 完全没接触过命令行 → [零基础三分钟上手](https://github.com/dobo123123/dobocache/blob/main/release/零基础三分钟上手.md)，从装 Node 到验证成功六步走完
-- 客户端支持 MCP、想手动挂载（`dobocache`，9 个工具）→ 见 [§六 写法 A/B/C](#六安装与挂载四种写法abc-是-mcp-挂载d-是本地代理)
+- 客户端支持 MCP、想手动挂载（`dobocache`，9 个工具）→ 见 [§六 写法 A/B/C](#六安装与挂载写法-0--一条命令abc-是-mcp-挂载d-是本地代理)
 
 ### 挂上去能到什么水平（带条件，不裸报）
 
@@ -176,7 +176,22 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 三、版本说明（请先读这一节）
 
-**v0.5.2 = 首屏命令修复版。缓存核心仍零改动。** 上一版（v0.5.1）发布后被复验出一处真错误：文档给出的第一屏命令 `npx dobocache@0.5.1 dobostitch start` 会**起来一个 MCP server 然后挂住不动**，代理根本没启动——因为包里有两个 `bin`，`npx` 只挑同名那个跑，入口又不看后面的参数。本版让入口自己认参数：遇到 `dobostitch` 就转交代理，其余情况照旧起 MCP。**同时把代理形态在 `npx` 下的正确写法写进文档并用守卫脚本锁住，不再靠人记。**
+**v0.6.0 = 一键接入版（`dobostitch setup`）。缓存核心仍零改动。**
+
+前面每一版都留了三件苦活给用户：自己找配置文件、自己改 `baseURL`、自己保证进程活着。这三件正好是新手最容易掉队的地方。本版把它们压成一条命令：扫本机已装的 AI 客户端 → 逐个备份 → 写入「能自动带起本地代理」的 MCP 入口 → 把 `baseURL` 指到本机代理 → 注册开机自启。**不是性能版**，命中率、9 个工具、缓存内核与 v0.5.2 完全一致。
+
+| 项目 | 说明 |
+|---|---|
+| 最该知道的一句 | 以前要照着文档改三处配置，现在只有一条：`npx -y dobocache dobostitch setup`。跑完重启客户端就行 |
+| 自动识别范围（不夸大） | 本版能自动定位的是**本机已装的 Loomy 桌面端、opencode（通用）、Claude Code**（Claude Code 改 `settings.json` 的 `env.ANTHROPIC_BASE_URL` + `~/.claude.json` 的 `mcpServers.dobocache`）。其它客户端不在自动改写范围，用 `dobostitch attach --target generic` 打印可粘贴片段后手填 |
+| 只对已存在的配置动手 | 没装、没生成配置的一律跳过，不会凭空造配置文件；通用 opencode 只写 MCP，`baseURL` 不代猜（上游各家不同，猜错比不猜更糟） |
+| 先预览再执行 | `dobostitch setup --dry-run` 只打印「会改哪个文件、哪一行、从什么改成什么」，一个字节都不写盘 |
+| 备份与退回 | 改前必定备份为 `<原文件>.bak_<时间戳>_before-dobocache`，并留 sidecar 记录；`dobostitch attach --revert` 原样退回接入前状态，`dobostitch autostart disable` 撤自启 |
+| 幂等 | 已接入的文件再跑一次显示「已是接入状态」，不重复写、不重复备份 |
+| 手动形态不受影响 | `dobostitch start` + 手填 `baseURL` 的行为与 v0.5.2 完全一致，不想让程序碰配置的走这条 |
+| **不宣称** | 缓存内核、9 个工具、命中率与 v0.5.2 一致；**不是性能版**，也不代表「支持所有客户端自动接入」 |
+
+**(历史留档) v0.5.2 = 首屏命令修复版，缓存核心仍零改动。** 上一版（v0.5.1）发布后被复验出一处真错误：文档给出的第一屏命令 `npx dobocache@0.5.1 dobostitch start` 会**起来一个 MCP server 然后挂住不动**，代理根本没启动——因为包里有两个 `bin`，`npx` 只挑同名那个跑，入口又不看后面的参数。本版让入口自己认参数：遇到 `dobostitch` 就转交代理，其余情况照旧起 MCP。**同时把代理形态在 `npx` 下的正确写法写进文档并用守卫脚本锁住，不再靠人记。**
 
 | 项目 | 说明 |
 |---|---|
@@ -337,7 +352,7 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 ## 五、白盒报告：每一步都看得见
 
-每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.5.2）输出的记录示例，内容与 v0.5.1 一致：
+每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.6.0）输出的记录示例，内容与 v0.5.1 一致：
 
 ```json
 {
@@ -388,12 +403,14 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 > 一句话：**平时不用管它；需要证据时用 `cf_report`（不花 token），需要看单次细节时再开 `once` / `always`。**
 
-## 六、安装与挂载（四种写法：A/B/C 是 MCP 挂载，D 是本地代理）
+## 六、安装与挂载（写法 0 = 一条命令；A/B/C 是 MCP 挂载，D 是本地代理）
+
+#### 写法 0：一条命令全自动（v0.6.0 新增）
 
 > **赶时间、只想看一条路**：不想碰 JSON 配置、客户端支不支持 MCP 都无所谓的，直接跑 `npx -y dobocache dobostitch setup`——它自己找客户端、自己写配置、自己挂开机自启，跑完重启客户端就行，不用改 `baseURL`、不用写脚本（细节见 [写法 D](#写法-ddobostitch-本地代理不用改客户端代码)）。
 > 下面写法 A / B / C 是 **MCP 挂载**路线，适合客户端已支持 MCP、且希望由 Agent 自己决定何时整理前缀的情况。
 
-1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.5.2-portable.zip` 并解压（内含 `dist`、`src`、启动脚本与校验清单。**代理形态（写法 D）零外部依赖，解压双击即可跑，无需 `npm install`**；MCP 形态依赖 `@modelcontextprotocol/sdk`，请走写法 B / C 从 npm 安装。包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C / D 从 npm 装**；
+1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.6.0-portable.zip` 并解压（内含 `dist`、`src`、启动脚本与校验清单。**代理形态（写法 D）零外部依赖，解压双击即可跑，无需 `npm install`**；MCP 形态依赖 `@modelcontextprotocol/sdk`，请走写法 B / C 从 npm 安装。包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C / D 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
 3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
@@ -443,7 +460,7 @@ macOS / Linux：
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.5.2"]
+      "args": ["-y", "dobocache@0.6.0"]
     }
   }
 }
@@ -452,12 +469,12 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本能从 npm 取到（`npm view dobocache@0.5.2 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.6.0 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
 ```bash
-npm install -g dobocache@0.5.2
+npm install -g dobocache@0.6.0
 ```
 
 ```json
@@ -471,7 +488,7 @@ npm install -g dobocache@0.5.2
 ```
 
 - ⚠️ **Windows 上同样注意扩展名**：写 `"command": "dobocache.cmd"`；若客户端仍找不到命令，直接填全局安装目录下的绝对路径（`npm root -g` 显示的目录的上一级里的 `dobocache.cmd`）。
-- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.5.2 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
+- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.6.0 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
 - **适用**：一台机器长期固定使用、不想每次下载。升级时重跑 `npm install -g dobocache@<新版本>` 并重启客户端。
 
 三种写法对照：
@@ -659,7 +676,7 @@ dobostitch start                                # 全局安装后直接调命令
 
 最短复现路径：
 
-1. 解压 v0.5.2 发布包，MCP 指向 `<解压目录>\dist\index.js`；
+1. 解压 v0.6.0 发布包，MCP 指向 `<解压目录>\dist\index.js`；
 2. 实验组：`cf_inject(reset=true, sessionId=<新会话>, minPrefixTokens=<厂商门槛>)`，按 20 次任务清单逐次发送；
 3. 对照组：同样任务文本，但**每次头部注入不同随机噪音**（这是关键，见下）；
 4. 每次取**第二遍**请求的厂商 usage（第一遍建缓存，第二遍才是命中读数）；

@@ -1,6 +1,6 @@
 # DoboCache Changelog
 
-## 未发布（版本号待老板拍板）— 「一装即接上」改造
+## v0.6.0（2026-11-14）— 「一装即接上」：一条命令完成接入
 
 > 目标：老板指出——现在发出去的版本，用户还得自己配 baseURL、自己写拉起脚本，很多人用不明白。本段改造把「教用户手工配」换成「一条命令自己接上」：`npx -y dobocache dobostitch setup`。缓存内核零改动。
 
@@ -22,10 +22,16 @@
 8. `package.json` / `server.json` 的 description 同步「一条命令自动接入」口径。
 9. 交接物料：`handoff/release-kit/17-开发线改造回执-一装即接入.md`、`18-一条命令上手-中文.md`、`19-One-command-setup-English.md`（与中文完全同构）、`20-给推广线的改造交接单-一装即接入.md`。
 
-### 未做（待老板拍板 / 分工归属）
-- **版本号未升**，仍为 `0.5.2`；
-- `ping` 是否改名（现为评分卡 Naming 4/5 的扣分项，改名有兼容代价）；
-- `release/*.md` 六份对外文档由推广线按 20 号单改，开发线不碰。
+### 推广线（本次定稿，2026-11-14）
+10. **版本号定版 `0.6.0`**（已升 `package.json` / `server.json` / MCP Registry 清单三处），对外统一口径为「一键接入版」，不宣称"比旧版更强"。
+11. `release/` 六份对外文档全部改为一键接入主线：`README.zh.md` / `README.en.md`（首屏、三种挂法表、§6 写法 0、v0.6.0 发布段）、`零基础三分钟上手.md`（新增「路线 0：一条命令全自动」并置于分岔口首位）、`FAQ-使用须知.md`（新增 §十五 setup 专项 8 问，原代理章顺延为 §十六）、`兼容性说明.md`（新增 A.9 自动识别范围与真机 `--dry-run` 记录）、`社区帖-中文.md` / `社区帖-English.md`（两挂法改三挂法，首屏换成 setup）。
+12. **宣称口径收窄**：`setup` 自动识别的客户端明确为 **Loomy 桌面端 / opencode / Claude Code 三类**，其余（Cline / Continue / Cherry Studio / Trae / Cursor…）一律写"手动挂载或 `attach --target generic`"，不把"支持 MCP"写成"能自动接入"。
+13. 命中文案复核：README / 社区帖 / 描述里的"一条命令"必须与入口转发实际放行的子命令一致（见下方 P0-0）。
+
+### 未做 / 待办
+- **P0-0（阻塞发布，归开发线）**：入口转发白名单 `PROXY_SUBCOMMANDS` 只有 `start` / `status` / `resume` / `doctor`，缺 `setup` / `attach` / `autostart`。实测 `node dist/index.js dobostitch setup --dry-run` 退出码 0 且零输出（被吞成普通参数后进 MCP stdio），即 npm 侧首屏命令 `npx -y dobocache dobostitch setup` 会**静默无反应**。`scripts/check-docs.mjs` 的 `SUBCOMMANDS` 同样是这 4 个，守卫对此盲放行，需一并补并加反向断言。
+- `ping` 是否改名（评分卡 Naming 4/5 扣分项，改名有兼容代价）；本版不改名，理由不变。
+- `setup` 真实写入（去掉 `--dry-run`）未在本机执行，端到端证据留给用户机器；`release/兼容性说明.md` A.9.5 已如实标注。
 
 ## v0.5.2（2026-11-13）— 首屏命令修复：`npx dobocache@x dobostitch start` 不再挂住
 

@@ -1,7 +1,7 @@
 {
   "name": "dobocache",
-  "version": "0.5.2",
-  "description": "Keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits. One command adopts it: `npx -y dobocache dobostitch setup` finds your local AI clients, backs up and wires their configs, mounts a self-starting MCP entry and registers autostart - no baseURL editing, no scripts (manual local-proxy mode still available). Works with Codex CLI, Cline, Continue, Cherry Studio, Trae and any Anthropic / OpenAI / DeepSeek compatible client. Fully local, no telemetry.",
+  "version": "0.6.0",
+  "description": "Keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits. One command adopts it: `npx -y dobocache dobostitch setup` auto-detects installed Loomy desktop / opencode / Claude Code configs, backs them up, wires a self-starting MCP entry, points baseURL at the local proxy and registers autostart (other MCP clients mount manually; local-proxy-only mode still available). Fully local, no telemetry.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

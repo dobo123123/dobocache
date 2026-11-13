@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.dobo123123/dobocache",
   "title": "DoboCache",
-  "description": "One-command adoption: finds your local AI clients, backs up and wires their configs, mounts a self-starting MCP entry with autostart, and runs a local proxy that keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits.",
-  "version": "0.5.2",
+  "description": "One-command adoption: detects installed Loomy desktop / opencode / Claude Code configs, backs them up, wires a self-starting MCP entry plus autostart, and runs a local proxy that keeps prompt-cache prefixes stable so provider prompt caching actually hits. Other MCP clients mount manually. Fully local, no telemetry.",
+  "version": "0.6.0",
   "websiteUrl": "https://github.com/dobo123123/dobocache",
   "repository": {
     "url": "https://github.com/dobo123123/dobocache",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "dobocache",
-      "version": "0.5.2",
+      "version": "0.6.0",
       "transport": {
         "type": "stdio"
       },

@@ -31,7 +31,7 @@ import { checkNodeVersion } from "./utils/runtime.js";
 //
 // 硬约束：本段不得向 stdout 打印任何内容（会污染 MCP 通道），日志一律走 stderr。
 // ─────────────────────────────────────────────────────────────────────────────
-const PROXY_SUBCOMMANDS = new Set(["start", "status", "resume", "doctor"]);
+const PROXY_SUBCOMMANDS = new Set(["start", "status", "resume", "doctor", "setup", "attach", "autostart"]);
 
 async function forwardToProxyIfNeeded(): Promise<boolean> {
   const rawArgs = process.argv.slice(2);
@@ -75,7 +75,7 @@ async function startMcpServer(): Promise<void> {
   const server = new McpServer(
     {
       name: "dobocache",
-      version: "0.5.2",
+      version: "0.6.0",
     },
     {
       // v0.4.4 r3：服务级说明（MCP 规范 initialize.instructions）。

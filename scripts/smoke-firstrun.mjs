@@ -116,8 +116,22 @@ function run(args, { stdin = 'close', timeout = HARD_TIMEOUT_MS, input = null } 
   }
 }
 
+/* ---------- ④ 首屏命令 setup 必须真的转发到代理 CLI（v0.6.0） ---------- */
+{
+  const r = await run([ENTRY, 'dobostitch', 'setup', '--dry-run']);
+  if (r.timedOut) {
+    failures.push('④ `node dist/index.js dobostitch setup --dry-run` 挂死 25s —— 入口白名单未放行 setup（P0-0 复发）');
+  } else if (r.code !== 0) {
+    failures.push(`④ setup --dry-run 退出码 ${r.code}，stderr：${r.stderr.trim().slice(0, 300)}`);
+  } else if (!/一键接入|\[dobostitch\]/.test(r.stdout)) {
+    failures.push(`④ setup --dry-run 无输出，说明入口没转发（P0-0 复发）：stdout=${r.stdout.trim().slice(0, 200)}`);
+  } else {
+    notes.push(`④ setup 入口转发正常：${r.stdout.trim().split('\n')[0].slice(0, 90)}`);
+  }
+}
+
 /* ---------- 输出 ---------- */
-console.log('[smoke] 首屏命令冒烟 · v0.5.2 P0 回归守卫');
+console.log('[smoke] 首屏命令冒烟 · v0.6.0（P0 回归守卫：status / setup）');
 for (const n of notes) console.log(`  PASS ${n}`);
 for (const f of failures) console.log(`  FAIL ${f}`);
 console.log(`\n结果：${failures.length === 0 ? '通过' : `${failures.length} 项失败`}`);

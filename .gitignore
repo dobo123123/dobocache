@@ -22,3 +22,6 @@ disc_query.graphql
 
 
 .tmp-*
+
+# 本机专用实验脚本（写死本机绝对路径与具体客户端目录，绝不入库/进包）
+scripts/loomy/
