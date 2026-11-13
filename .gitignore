@@ -20,3 +20,5 @@ handoff/
 _rel.json
 disc_query.graphql
 
+
+.tmp-*

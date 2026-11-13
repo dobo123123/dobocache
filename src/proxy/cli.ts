@@ -15,6 +15,9 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
+import { findTargets, makeContext, renderGenericSnippet, resolveAttachPort, type AttachResult } from "../attach.js";
+import { disable as disableAutostart, enable as enableAutostart, statusTransport } from "../autostart.js";
+import { readLastPort, writeLastPort } from "../state.js";
 import { renderHealthCard } from "./card.js";
 import { defaultHandoffDir, handoffDirNotice, handoffDirWarning, listHandoffs, loadHandoff, renderResumeBrief } from "./handoff.js";
 import { DEFAULT_CONTEXT_THRESHOLD_TOKENS, DEFAULT_PORT, resolveRoutes, startProxy } from "./server.js";
@@ -45,6 +48,15 @@ const USAGE = `dobostitch —— DoboCache 本地代理层
   DeepSeek   http://127.0.0.1:27880/deepseek
   OpenAI     http://127.0.0.1:27880/openai
   Anthropic  http://127.0.0.1:27880/anthropic
+
+全自动接入（不想手改配置就用这个）：
+  dobostitch setup [--dry-run]                      一条命令装完，小白只需记这一条
+  dobostitch attach [--target auto|loomy|opencode|claude-code|generic] [--dry-run] [--revert] [--no-autostart]
+  dobostitch autostart [status|enable|disable]
+
+  setup = attach（自动找客户端配置、备份、改 baseURL、写入自带拉起代理的 MCP 入口）+ 注册开机自启。
+  之后换任何底座都不用再写脚本：MCP 入口会自己把代理拉起来。
+  attach 的 --dry-run 只预览，--revert 原样退回；generic 只打印可粘贴片段，适合自研底座。
 `;
 
 /** 改写档位默认值 */
@@ -163,6 +175,9 @@ async function commandStart(argv: string[]): Promise<void> {
     injectUsage: inject.enabled,
   });
   const routes = resolveRoutes();
+
+  // 代理真正跑起来后落一次端口，其它入口（bundle / 自启 / attach）都以此为准
+  writeLastPort(starting.port);
 
   console.log(renderStartupCard(starting.port, routes, threshold));
   console.log("");
@@ -299,8 +314,203 @@ async function commandDoctor(argv: string[] = []): Promise<void> {
   if (failed > 0) process.exitCode = 1;
 }
 
+/** 打印一条 attach 结果 */
+function printAttachResult(result: AttachResult): void {
+  const tag =
+    result.status === "applied" ? "已写入" : result.status === "dry-run" ? "预览" : result.status === "skipped" ? "跳过" : "失败";
+  console.log(`  [${tag}] ${result.label}：${result.configPath}`);
+  for (const change of result.changes) console.log(`        · ${change}`);
+  if (result.detail) console.log(`        · ${result.detail}`);
+  if (result.backup) console.log(`        · 备份：${result.backup}`);
+}
+
+/** attach：自动找配置、备份、改 baseURL、写 MCP 入口 */
+async function commandAttach(argv: string[]): Promise<void> {
+  const portText = argValue(argv, "port");
+  const parsedPort = portText ? Number(portText) : NaN;
+  const explicitPort = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : null;
+  const dryRun = argv.includes("--dry-run");
+  const revert = argv.includes("--revert");
+  const targetId = argValue(argv, "target") ?? "auto";
+  const targets = findTargets(targetId);
+  if (targets.length === 0) {
+    console.error(`[dobostitch] 不认识的底座：${targetId}（可选 auto / loomy / opencode / claude-code / generic）`);
+    process.exitCode = 1;
+    return;
+  }
+
+  // 端口选择：用户显式指定 > 沿用已在跑的代理 > 默认端口
+  const locatedFiles = targets.flatMap((target) => target.locate());
+  const chosen = explicitPort ? { port: explicitPort, reused: false } : await resolveAttachPort(locatedFiles);
+  const port = chosen.port;
+  // 记住最终端口，MCP bundle / 开机自启都读它，保证全机一个端口口径
+  if (!dryRun) writeLastPort(port);
+
+  const ctx = makeContext(port, dryRun);
+  const routes = resolveRoutes().map((route) => ({ prefix: route.prefix, baseUrl: route.baseUrl }));
+
+  if (targetId === "generic") {
+    console.log(renderGenericSnippet(ctx, routes));
+    return;
+  }
+
+  console.log(`[dobostitch] ${revert ? "退回" : "接入"}模式${dryRun ? "（预览，不写盘）" : ""}；代理端口 ${port}${chosen.reused ? "（沿用已在跑的代理）" : ""}`);
+  console.log(`[dobostitch] MCP 入口：${ctx.bundlePath}`);
+  console.log("");
+
+  const results: AttachResult[] = [];
+  for (const target of targets) {
+    const files = target.locate();
+    if (files.length === 0) {
+      results.push({
+        target: target.id,
+        label: target.label,
+        configPath: "-",
+        status: "skipped",
+        changes: [],
+        detail: "没找到该底座的配置文件",
+      });
+      continue;
+    }
+    for (const file of files) {
+      try {
+        results.push(revert ? target.revert(file, ctx) : target.sync(file, ctx));
+      } catch (err) {
+        results.push({
+          target: target.id,
+          label: target.label,
+          configPath: file,
+          status: "error",
+          changes: [],
+          detail: (err as Error)?.message ?? String(err),
+        });
+      }
+    }
+  }
+
+  for (const result of results) printAttachResult(result);
+
+  const applied = results.filter((result) => result.status === "applied").length;
+  const failed = results.filter((result) => result.status === "error").length;
+  const touched = results.some((result) => result.status === "applied" || result.status === "dry-run");
+
+  if (!revert && !dryRun && applied > 0 && !argv.includes("--no-autostart")) {
+    const auto = enableAutostart(port);
+    console.log("");
+    console.log(`[dobostitch] 开机自启：${auto.registered ? "已注册" : "未注册"} —— ${auto.detail}`);
+    console.log(`            载体：${auto.location}`);
+  }
+
+  console.log("");
+  if (!revert && !touched) {
+    console.log("[dobostitch] 没识别到可自动接入的底座，下面这段可直接粘到任意客户端：");
+    console.log("");
+    console.log(renderGenericSnippet(ctx, routes));
+    return;
+  }
+  if (failed > 0) {
+    console.log(`[dobostitch] ${failed} 个文件处理失败，原文件已备份，按上面提示排查后重跑即可。`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(
+    dryRun
+      ? "[dobostitch] 预览结束，以上都没写盘；确认无误后去掉 --dry-run 再跑一次即真正接入。"
+      : revert
+        ? "[dobostitch] 已退回接入前状态，重启客户端即生效。"
+        : "[dobostitch] 接好了：重启客户端即可，代理会随 MCP 自动起来，不用再单独起进程。",
+  );
+}
+
+/** setup：一条命令完成"探测底座 → 写配置 → 注册自启"，小白唯一需要记的命令 */
+async function commandSetup(argv: string[]): Promise<void> {
+  const dryRun = argv.includes("--dry-run");
+  console.log("[dobostitch] 一键接入：识别本机 AI 客户端 → 写入 MCP 配置 → 注册开机自启");
+  console.log("");
+
+  await commandAttach(dryRun ? ["--dry-run", "--no-autostart"] : ["--no-autostart"]);
+  if (dryRun) return;
+
+  const located = findTargets("auto").flatMap((target) => target.locate());
+  const { port } = await resolveAttachPort(located);
+  writeLastPort(port);
+
+  const st = statusTransport();
+  if (st.registered) {
+    console.log(`[dobostitch] 开机自启：已注册（${st.detail}）`);
+  } else {
+    const r = enableAutostart(port);
+    console.log(`[dobostitch] 开机自启：${r.registered ? "已开启" : "未开启"}（${r.detail}）`);
+    if (!r.registered) process.exitCode = 1;
+  }
+
+  console.log("");
+  console.log("[dobostitch] 接入完成。重启 AI 客户端即可生效，不需要改代码，也不需要写任何脚本。");
+}
+
+/** autostart：注册/取消/查看开机自启 */
+async function commandAutostart(argv: string[]): Promise<void> {
+  const action = argv[0] ?? "status";
+  const portText = argValue(argv, "port");
+  const parsedPort = portText ? Number(portText) : NaN;
+  // 端口口径：显式 --port > 已在跑的代理 > 上次记录的端口 > 默认端口
+  let port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : NaN;
+  if (!Number.isFinite(port)) {
+    const located = findTargets("auto").flatMap((target) => target.locate());
+    port = (await resolveAttachPort(located)).port;
+  }
+  if (!Number.isFinite(port)) port = readLastPort() ?? DEFAULT_PORT;
+
+  if (action === "enable") {
+    writeLastPort(port);
+    const result = enableAutostart(port);
+    console.log(`[dobostitch] ${result.registered ? "已开启" : "未开启"}：${result.detail}`);
+    console.log(`            载体：${result.location}`);
+    if (!result.registered) process.exitCode = 1;
+    return;
+  }
+  if (action === "disable") {
+    const result = disableAutostart();
+    console.log(`[dobostitch] 关闭开机自启：${result.detail}`);
+    console.log(`            载体：${result.location}`);
+    return;
+  }
+  if (action !== "status") {
+    console.error(`[dobostitch] 未知动作：${action}（可选 status / enable / disable）`);
+    process.exitCode = 1;
+    return;
+  }
+  const result = statusTransport();
+  console.log(`[dobostitch] 开机自启状态：${result.registered ? "已注册" : "未注册"}`);
+  console.log(`            平台支持：${result.supported ? "是" : "否"}`);
+  console.log(`            载体：${result.location}`);
+  console.log(`            说明：${result.detail}`);
+}
+
+/**
+ * --log <path>：把本进程的 console 输出写进文件。
+ * 用途：被 bundle 以后台方式拉起时，日志必须由代理自己落盘，
+ * 否则后台进程会继承调用方的 stdout/stderr，把 MCP 协议流搞脏、还让调用方管道不结束。
+ */
+function redirectConsoleIfRequested(argv: string[]): void {
+  const target = argValue(argv, "log");
+  if (!target) return;
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const stream = fs.createWriteStream(target, { flags: "a" });
+    const write = (...args: unknown[]): void => {
+      stream.write(`${args.map((item) => (typeof item === "string" ? item : String(item))).join(" ")}\n`);
+    };
+    console.log = write;
+    console.error = write;
+  } catch {
+    /* 写不了就保持原样，不能因为日志失败影响代理 */
+  }
+}
+
 async function main(): Promise<void> {
   const [, , command = "", ...rest] = process.argv;
+  redirectConsoleIfRequested(rest);
   switch (command) {
     case "start":
       await commandStart(rest);
@@ -313,6 +523,15 @@ async function main(): Promise<void> {
       return;
     case "doctor":
       await commandDoctor(rest);
+      return;
+    case "attach":
+      await commandAttach(rest);
+      return;
+    case "setup":
+      await commandSetup(rest);
+      return;
+    case "autostart":
+      await commandAutostart(rest);
       return;
     case "":
     case "--help":

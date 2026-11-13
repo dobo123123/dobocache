@@ -7,6 +7,7 @@
   "types": "dist/index.d.ts",
   "bin": {
     "dobocache": "dist/index.js",
+    "dobocache-mcp": "dist/bundle.js",
     "dobostitch": "dist/proxy/cli.js"
   },
   "engines": {
