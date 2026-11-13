@@ -124,7 +124,25 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 三、版本说明（请先读这一节）
 
-**v0.4.9 = 发布通道切换版。npm 已公告自 2027-01 起限制「可绕过 2FA 的长寿命 token」直接发布，本版把发布通道整体切到 GitHub Actions OIDC Trusted Publishing：打 tag 时由 GitHub 签发短期令牌、npm 侧校验后直接收包，仓库与其设置里不再存放任何发布密钥，产物附带 provenance 签名、可追溯到具体 commit 与工作流运行。代码与缓存核心零改动，行为与 v0.4.8 逐字节一致。**
+**v0.5.2 = 首屏命令修复版。上一版（v0.5.1）的文档里给用户的第一条命令 `npx -y dobocache@0.5.1 dobostitch start`，实际起的是一个 MCP server：不打印接入地址、也不报错，用户照着念会卡在第一步。本版让入口识别 `dobostitch start / status / resume / doctor` 并原样转发给代理 CLI，不带参数启动行为完全不变（仍是纯 MCP stdio server）。缓存核心、9 个工具、命中率口径与 v0.5.1 完全一致。**
+
+| 项目 | 说明 |
+|---|---|
+| 首屏命令修复（本版主体） | `dobocache` 入口转发 `dobostitch start / status / resume / doctor`；不带参数时行为不变，仍是纯 MCP stdio server。原 `dobostitch` 独立 bin 未受影响 |
+| 入口 BOM 剥离 | 入口文件原带 BOM，构建产物首行被污染，个别终端启动会报 `unexpected character`，本版一并修掉 |
+| 交接记录落点平台化 | 会话交接记录默认落平台用户数据目录（Windows `%LOCALAPPDATA%\DoboCache\handoff`、macOS `~/Library/Application Support/DoboCache/handoff`、Linux `$XDG_STATE_HOME/dobocache/handoff`），不再落 npx 缓存目录；旧记录首次启动自动复制迁移（复制不删源）。万一回退到临时/包内目录，`start` / `doctor` 会打印明确警告 |
+| 新增 `npm run smoke` | 用 dist 产物真跑三条路径（入口转发 / 原 `dobostitch` bin / MCP 主路径握手），带硬超时，已入 CI |
+| 文档写法进机器守卫 | `check-docs` 新增一节：文档里写的 npx 写法与入口实际能力不一致时构建失败，同类问题不再靠人工复验发现 |
+| 新增 `npm run typecheck` | `tsc --noEmit` 与 `build` 分离，CI 独立一步 |
+| 依赖补丁 | `@hono/node-server` 2.1.5 → 2.1.8（补丁级，运行行为不变） |
+| CI 超时按平台独立 | `macos-13`（Intel）压到 5 分钟，不再因 runner 排队拖满链路；Intel 仍在矩阵内 |
+| 口径 | **不是性能版、不是功能版**；命中率与 v0.5.1 一致 |
+
+**v0.5.1 / v0.5.0 = 形态与落地补齐版（一句话留档）**：v0.5.0 引入第二张皮「本地代理 `dobostitch`」（一核两皮，客户端不支持 MCP 时可把 `baseURL` 指到本机代理）；v0.5.1 把便携包内四份文档从 0 覆盖到完整（此前后三个文档完全没有代理形态）、新增双击入口 `start-dobostitch.cmd`、FAQ 增代理专项 10 条。两版缓存核心均零改动。
+
+---
+
+**（历史版本说明，保留备查）v0.4.9 = 发布通道切换版。npm 已公告自 2027-01 起限制「可绕过 2FA 的长寿命 token」直接发布，本版把发布通道整体切到 GitHub Actions OIDC Trusted Publishing：打 tag 时由 GitHub 签发短期令牌、npm 侧校验后直接收包，仓库与其设置里不再存放任何发布密钥，产物附带 provenance 签名、可追溯到具体 commit 与工作流运行。代码与缓存核心零改动，行为与 v0.4.8 逐字节一致。**
 
 | 项目 | 说明 |
 |---|---|

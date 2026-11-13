@@ -153,7 +153,25 @@ Typical call: `cf_inject(reset=true, sessionId=<your-session>, minPrefixTokens=<
 
 ## 3. Release notes (read this first)
 
-**v0.4.9 = a release-channel change. npm has announced that long-lived "bypass 2FA" tokens will be restricted for direct publishing starting 2027-01, so this release moves publishing to GitHub Actions OIDC Trusted Publishing: GitHub mints a short-lived OIDC token on tag push, npm validates and accepts the package, and no publishing secret is stored in the repository or its settings; artifacts also carry provenance attestations traceable to a specific commit and workflow run. No code or caching-core change: behaviour is byte-for-byte identical to v0.4.8.**
+**v0.5.2 = first-screen command fix. In the previous release (v0.5.1) the very first command the docs gave users was `npx -y dobocache dobostitch start` pinned to that version; it actually started an MCP server: it never printed the baseURL, never errored, and left users stuck on step one. This release makes the entry point recognise `dobostitch start / status / resume / doctor` and forward them verbatim to the proxy CLI; running with no arguments behaves exactly as before (a pure MCP stdio server). The caching core, the 9 tools and every hit-rate figure are identical to v0.5.1.**
+
+| Item | Detail |
+|---|---|
+| First-screen command fix (the point of this release) | The `dobocache` entry forwards `dobostitch start / status / resume / doctor`; with no arguments nothing changes (still a pure MCP stdio server). The standalone `dobostitch` bin is untouched |
+| Entry BOM removed | The entry file carried a BOM that polluted the first line of the build output and made some terminals fail with `unexpected character` |
+| Handoff records moved to per-platform data dirs | Session handoff records now default to the platform user-data dir (Windows `%LOCALAPPDATA%\\DoboCache\\handoff`, macOS `~/Library/Application Support/DoboCache/handoff`, Linux `$XDG_STATE_HOME/dobocache/handoff`) instead of the npx cache; existing records are copied over on first start (copy, never delete). If it ever falls back to a temp/in-package dir, `start` / `doctor` print an explicit warning |
+| New `npm run smoke` | Runs the dist build along three real paths (entry forwarding / legacy `dobostitch` bin / MCP main-path handshake) with hard timeouts, wired into CI |
+| Doc phrasing under a machine guard | `check-docs` gains a rule: if a doc shows an npx invocation the entry cannot actually serve, the build fails |
+| New `npm run typecheck` | `tsc --noEmit` runs separately from `build`, as its own CI step |
+| Dependency patch | `@hono/node-server` 2.1.5 -> 2.1.8 (patch level, no runtime behaviour change) |
+| Per-platform CI timeouts | `macos-13` (Intel) capped at 5 minutes so a queued runner cannot stall the chain; Intel stays in the matrix |
+| Claim policy | **Not a performance release, not a feature release**; hit rates identical to v0.5.1 |
+
+**v0.5.1 / v0.5.0 = shape and landing fixes (one line each)**: v0.5.0 added the second skin, the local proxy `dobostitch` (one core, two skins: point your client's `baseURL` at the local proxy when the client cannot speak MCP); v0.5.1 brought all four in-package docs from zero coverage to complete (three of them previously had no proxy content at all), added the double-click entry `start-dobostitch.cmd` and 10 proxy-specific FAQ entries. Neither version touched the caching core.
+
+---
+
+**(Historical, kept for reference) v0.4.9 = a release-channel change. npm has announced that long-lived "bypass 2FA" tokens will be restricted for direct publishing starting 2027-01, so this release moves publishing to GitHub Actions OIDC Trusted Publishing: GitHub mints a short-lived OIDC token on tag push, npm validates and accepts the package, and no publishing secret is stored in the repository or its settings; artifacts also carry provenance attestations traceable to a specific commit and workflow run. No code or caching-core change: behaviour is byte-for-byte identical to v0.4.8.**
 
 | Item | Detail |
 |---|---|
