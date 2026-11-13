@@ -1,6 +1,6 @@
 {
   "name": "dobocache",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits: a local proxy you adopt by pointing your client's baseURL at localhost (no client code changes) plus a stdio MCP server. Works with Codex CLI, Cline, Continue, Cherry Studio, Trae and any Anthropic / OpenAI / DeepSeek compatible client. Fully local, no telemetry.",
   "type": "module",
   "main": "dist/index.js",
@@ -38,6 +38,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
     "start:proxy": "node dist/proxy/cli.js start",
     "dev": "tsx src/index.ts",
@@ -45,7 +46,8 @@
     "test": "vitest run",
     "test:rewrite": "node scripts/test-rewrite.mjs",
     "test:inject": "node scripts/test-inject-usage.mjs",
-    "check:docs": "node scripts/check-docs.mjs"
+    "check:docs": "node scripts/check-docs.mjs",
+    "smoke": "node scripts/smoke-firstrun.mjs"
   },
   "keywords": [
     "mcp",

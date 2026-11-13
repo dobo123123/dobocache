@@ -45,28 +45,67 @@ function safeCwd(): string {
 }
 
 /**
- * 平台标准可写目录（按平台规则计算，不做任何磁盘操作）。
+ * 平台标准目录根（按平台规则计算，不做任何磁盘操作）。
+ *
+ * kind = "logs"    → 日志目录（v0.4.x 起的既有落点，行为与历史保持一致）
+ * kind = "handoff" → 交接单目录（v0.5.2 新增）
+ *
+ * 两者共用同一套「平台 → 标准位置」推导，只是子目录不同：
+ *   Windows  %LOCALAPPDATA%\DoboCache\{logs,handoff}
+ *   macOS    日志 ~/Library/Logs/DoboCache；交接 ~/Library/Application Support/DoboCache
+ *            （交接记录属于应用数据而非日志，放 Logs 下会被系统清理工具一并带走）
+ *   Linux    $XDG_STATE_HOME/dobocache（日志）；$XDG_STATE_HOME/dobocache/handoff（交接）
+ *
  * 平台不支持或无法确定家目录时返回 undefined。
  */
-export function platformLogDir(
+export type PlatformDirKind = "logs" | "handoff";
+
+export function platformStateRoot(
+  kind: PlatformDirKind,
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
   home: string = os.homedir(),
 ): string | undefined {
   if (platform === "win32") {
     const localAppData = env.LOCALAPPDATA?.trim();
-    if (localAppData) return path.join(localAppData, "DoboCache", "logs");
-    return home ? path.join(home, "AppData", "Local", "DoboCache", "logs") : undefined;
+    const base = localAppData || (home ? path.join(home, "AppData", "Local") : undefined);
+    if (!base) return undefined;
+    return path.join(base, "DoboCache", kind === "logs" ? "logs" : "handoff");
   }
   if (platform === "darwin") {
-    return home ? path.join(home, "Library", "Logs", "DoboCache") : undefined;
+    if (!home) return undefined;
+    const base = kind === "logs" ? path.join(home, "Library", "Logs") : path.join(home, "Library", "Application Support");
+    return path.join(base, "DoboCache");
   }
   // Linux 及其他类 Unix：XDG_STATE_HOME 优先（仅接受绝对路径，符合 XDG 规范）
   const xdgStateHome = env.XDG_STATE_HOME?.trim();
-  if (xdgStateHome && path.isAbsolute(xdgStateHome)) {
-    return path.join(xdgStateHome, "dobocache");
-  }
-  return home ? path.join(home, ".local", "state", "dobocache") : undefined;
+  const base =
+    xdgStateHome && path.isAbsolute(xdgStateHome)
+      ? xdgStateHome
+      : home
+        ? path.join(home, ".local", "state")
+        : undefined;
+  if (!base) return undefined;
+  const root = path.join(base, "dobocache");
+  return kind === "logs" ? root : path.join(root, "handoff");
+}
+
+/** 平台标准日志目录（历史名字保留，等价于 platformStateRoot("logs")） */
+export function platformLogDir(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+  home: string = os.homedir(),
+): string | undefined {
+  return platformStateRoot("logs", env, platform, home);
+}
+
+/** 平台标准交接单目录 */
+export function platformHandoffDir(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+  home: string = os.homedir(),
+): string | undefined {
+  return platformStateRoot("handoff", env, platform, home);
 }
 
 /** 试建目录 + 写探针，确认"真的能写"（只读挂载时 mkdir 可能成功但写入失败） */

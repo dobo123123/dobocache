@@ -2,7 +2,7 @@
 
 ---
 
-# DoboCache v0.5.1 · dobostitch：同一缓存内核，两种挂法
+# DoboCache v0.5.2 · dobostitch：同一缓存内核，两种挂法
 
 > **同一个会话，别为同一段上下文反复付全价。**
 > 把请求前缀稳定下来，让你已经在付费的**厂商前缀缓存（prompt caching）**真正命中：第一次请求照常建缓存，从第二次起基本按缓存价走。全程本地运行，不联网、不上报。
@@ -20,7 +20,7 @@
 ### 30 秒上手（不用 MCP、不改客户端代码、一条命令）
 
 ```bash
-npx -y dobocache@0.5.1 dobostitch start
+npx -y dobocache@0.5.2 dobostitch start
 ```
 
 终端会打印一行接入地址，形如 `接入 baseURL 填：http://127.0.0.1:27880/anthropic`（按你用的厂商换成 `/openai` 或 `/deepseek`）。把这行填进客户端的 **baseURL**，密钥、模型名、请求内容一个字都不用动，然后照常提问——终端会出现一张体检卡，**从第 2 轮请求起**卡上就有命中百分比。
@@ -103,7 +103,7 @@ DoboCache 是纯 JavaScript 的 stdio MCP Server，包内**不含任何原生二
 |---|---|---|
 | **Windows 10 / 11（x64）** | ✅ **主打平台，已真机验证** | 真机端到端跑通：本组实验 20 次连续请求对照（含真实 MCP 客户端挂载 + 厂商 usage 校验）、便携包解压即跑冒烟、全量 **95 项**测试通过、日志落盘实测 `%LOCALAPPDATA%\DoboCache\logs` |
 | **Linux（x86_64）** | 🟡 **容器环境已实测**（非桌面真机） | 2026-11-04 在 Docker `linux/amd64` + Node 官方 Linux 镜像内对发布包做真实运行：解压即跑、`initialize`/`tools/list` 返回合法、9 个工具全在、`cf_judge` 命中、`cf_inject` 返回 `prefixReady=true`、日志按 `~/.local/state/dobocache` 落盘、`XDG_STATE_HOME` 生效、`DOBOCACHE_LOG_DIR` 优先级最高、只读目录降级不崩溃、Node 16 自检 `exit 1`。**桌面 Linux 真机 + 图形客户端挂载、arm64 仍未验证**（细节见 [`兼容性说明.md`](https://github.com/dobo123123/dobocache/blob/main/release/兼容性说明.md) 附录 A） |
-| **macOS（Apple Silicon / Intel）** | 🟡 **CI 真机冒烟已通过**（非长期使用验证） | CI 的 macOS job 在真实 Mac 机器上跑通：`npm ci` → `tsc` → `eslint` → `vitest` → MCP stdio 握手（`initialize` + `tools/list` 恰好 9 个工具）+ 日志目录断言（必须落在 `~/Library/Logs/DoboCache` 且 `logDirSource=platform`）。Apple Silicon（`macos-latest`）与 Intel（`macos-13`）两个架构都在矩阵内，最近一次全绿见 Actions。**仍缺**：真实桌面客户端（如各类编码 CLI）挂载后的长会话实测 |
+| **macOS（Apple Silicon / Intel）** | 🟡 **CI 真机冒烟已通过**（非长期使用验证） | CI 的 macOS job 在真实 Mac 机器上跑通：`npm ci` → `tsc` → `tsc --noEmit` → `eslint` → `vitest` → 首屏命令冒烟（入口转发 / 原 bin / MCP 主路径）→ MCP stdio 握手（`initialize` + `tools/list` 恰好 9 个工具）+ 日志目录断言（必须落在 `~/Library/Logs/DoboCache` 且 `logDirSource=platform`）。Apple Silicon（`macos-latest`）与 Intel（`macos-13`）两个架构都在矩阵内，最近一次全绿见 Actions。**仍缺**：真实桌面客户端（如各类编码 CLI）挂载后的长会话实测 |
 
 > **一眼结论**：想省事就按 Windows 装（真机端到端验证过）；Linux / macOS 能跑但只做到上面写的程度，不吹"完整支持"。下面折叠里的每一档验证内容、反馈渠道和边界说明，**遇到问题再展开**。
 
@@ -162,7 +162,20 @@ server 共暴露 **8 个业务工具 + 1 个健康检查（`ping`）**，均为 
 
 ## 三、版本说明（请先读这一节）
 
-**v0.5.1 = 双形态打通版（文档、双击入口、元数据三处补齐）。缓存核心零改动。** v0.5.0 上线后有一处落差：文档里承诺"解压后双击 `start-dobostitch.cmd` 即可"，但便携包里其实没有这个文件，代理形态的所有说明也只能靠 `npx` 一条命令摸索。本版把这条路补平——**新增双击即启动的入口**，并把两种挂法的说明在四份文档里对齐。
+**v0.5.2 = 首屏命令修复版。缓存核心仍零改动。** 上一版（v0.5.1）发布后被复验出一处真错误：文档给出的第一屏命令 `npx dobocache@0.5.1 dobostitch start` 会**起来一个 MCP server 然后挂住不动**，代理根本没启动——因为包里有两个 `bin`，`npx` 只挑同名那个跑，入口又不看后面的参数。本版让入口自己认参数：遇到 `dobostitch` 就转交代理，其余情况照旧起 MCP。**同时把代理形态在 `npx` 下的正确写法写进文档并用守卫脚本锁住，不再靠人记。**
+
+| 项目 | 说明 |
+|---|---|
+| 最该知道的一句 | 你之前照着写 `npx dobocache@0.5.1 dobostitch start` 起不来，**不是你的错，是本版的锅**。升到 `0.5.2` 后同一条命令可直接用；若不想升级，旧版请改用 `npx -p dobocache@0.5.1 dobostitch start` |
+| 修复范围 | `src/index.ts` 增加入口转发：`argv[2] === "dobostitch"` 时把后续参数原样交给代理 CLI；`src/proxy/cli.ts` 导出可复用的启动函数。9 个工具的名称、入参、返回结构**一个没改** |
+| 交接目录 | 代理的会话交接目录从「包目录内」改到**平台数据目录**（Windows `%LOCALAPPDATA%\DoboCache\handoff`，macOS `~/Library/Application Support/DoboCache/handoff`，Linux `$XDG_DATA_HOME/dobocache/handoff`），并在首次启动时自动迁移旧目录里的会话（本机实测迁移 43 个）。**原先写在 `node_modules` 里的记录不再产生** |
+| 文档与守卫 | 4 份文档的代理启动写法统一订正；`scripts/check-docs.mjs` 新增 npx 写法守卫，出现 `npx dobocache@x.y.z dobostitch` 这种错配直接报 ERROR |
+| 首屏冒烟 | 新增 `scripts/smoke-firstrun.mjs`（`npm run smoke`）：断言 ① 入口转发能起来 ② 原 `dobostitch` bin 不受影响 ③ MCP 主路径仍正常握手，已接入 CI |
+| CI | 矩阵按平台独立超时，`macos-13`（Intel）不再被固定超时连带取消 |
+| 校验 | 本次实跑：`tsc --noEmit` 零报错、`eslint src test` 零告警、`vitest` **95/95** 通过、`npm run smoke` **3/3 PASS**、`check:docs` 0 ERROR / 0 WARN |
+| **不宣称** | 缓存内核、命中率与 v0.5.1 完全一致，**不是性能版**。本版只修「命令起不来」和「记录写进 node_modules」这两件事 |
+
+**v0.5.1 = 双形态打通版（文档、双击入口、元数据三处补齐）。缓存核心零改动。**（文档、双击入口、元数据三处补齐）。缓存核心零改动。** v0.5.0 上线后有一处落差：文档里承诺"解压后双击 `start-dobostitch.cmd` 即可"，但便携包里其实没有这个文件，代理形态的所有说明也只能靠 `npx` 一条命令摸索。本版把这条路补平——**新增双击即启动的入口**，并把两种挂法的说明在四份文档里对齐。
 
 | 项目 | 说明 |
 |---|---|
@@ -310,7 +323,7 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 ## 五、白盒报告：每一步都看得见
 
-每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.5.1）输出的记录示例：
+每次 `cf_judge` / `cf_inject` 之后，白盒日志会记录这一步做了什么、为什么做、效果如何。下面是一条按当前口径（v0.5.2）输出的记录示例，内容与 v0.5.1 一致：
 
 ```json
 {
@@ -363,10 +376,10 @@ COD-X 这一形态**跑了完整两轮，每轮 20 次**，两轮只差挂载的
 
 ## 六、安装与挂载（四种写法：A/B/C 是 MCP 挂载，D 是本地代理）
 
-> **赶时间、只想看一条路**：不想碰 JSON 配置、客户端支不支持 MCP 都无所谓的，直接跳 [写法 D](#写法-ddobostitch-本地代理不用改客户端代码)——一条 `npx -y dobocache@0.5.1 dobostitch start` 就够，剩下的只是把客户端的 `baseURL` 换成终端打印的那个地址。
+> **赶时间、只想看一条路**：不想碰 JSON 配置、客户端支不支持 MCP 都无所谓的，直接跳 [写法 D](#写法-ddobostitch-本地代理不用改客户端代码)——一条 `npx -y dobocache@0.5.2 dobostitch start` 就够，剩下的只是把客户端的 `baseURL` 换成终端打印的那个地址。
 > 下面写法 A / B / C 是 **MCP 挂载**路线，适合客户端已支持 MCP、且希望由 Agent 自己决定何时整理前缀的情况。
 
-1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.5.1-portable.zip` 并解压（内含 `dist`、`src`、启动脚本与校验清单。**代理形态（写法 D）零外部依赖，解压双击即可跑，无需 `npm install`**；MCP 形态依赖 `@modelcontextprotocol/sdk`，请走写法 B / C 从 npm 安装。包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C / D 从 npm 装**；
+1. 从 [Releases](https://github.com/dobo123123/dobocache/releases/latest) 下载 `dobocache-v0.5.2-portable.zip` 并解压（内含 `dist`、`src`、启动脚本与校验清单。**代理形态（写法 D）零外部依赖，解压双击即可跑，无需 `npm install`**；MCP 形态依赖 `@modelcontextprotocol/sdk`，请走写法 B / C 从 npm 安装。包内不含任何原生 `.node` 二进制，换机器换平台不会因 ABI 不匹配崩掉）；**不想下载也可以用下文写法 B / C / D 从 npm 装**；
 2. 在你所用客户端的 MCP 配置里加一个 **stdio** server（下面三种写法任选其一）；
 3. 重启客户端，确认工具列表里出现 **9 个**（`ping` + `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`）。少任何一个都说明 server 没起来，先看客户端日志里的 stderr。
 
@@ -416,7 +429,7 @@ macOS / Linux：
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.5.1"]
+      "args": ["-y", "dobocache@0.5.2"]
     }
   }
 }
@@ -425,12 +438,12 @@ macOS / Linux：
 - ⚠️ **Windows 上必须写 `npx.cmd`**（`"command": "npx.cmd"`）。npm 在 Windows 上只安装 `npx.cmd`，没有 `npx.exe`，客户端 `spawn("npx")` 会直接报 `ENOENT`——这是 MCP 客户端在 Windows 上最高频的报错。
 - macOS / Linux 保持 `npx` 即可；若客户端用非登录 shell 拉起且 PATH 里没有 node，可写死绝对路径（如 `/usr/local/bin/npx`）。
 - **适用**：希望自动跟随版本、机器可联网、不想手工解压。
-- **前提**：该版本能从 npm 取到（`npm view dobocache@0.5.1 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
+- **前提**：该版本能从 npm 取到（`npm view dobocache@0.5.2 version` 能返回版本号）；取不到时改用写法 A。另外 `npx` 有本地缓存，升级后行为仍是旧的时，执行 `npm cache clean --force` 或改用写法 C。
 
 ### 写法 C：全局安装后直接调命令
 
 ```bash
-npm install -g dobocache@0.5.1
+npm install -g dobocache@0.5.2
 ```
 
 ```json
@@ -444,7 +457,7 @@ npm install -g dobocache@0.5.1
 ```
 
 - ⚠️ **Windows 上同样注意扩展名**：写 `"command": "dobocache.cmd"`；若客户端仍找不到命令，直接填全局安装目录下的绝对路径（`npm root -g` 显示的目录的上一级里的 `dobocache.cmd`）。
-- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.5.1 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
+- **macOS / Linux 权限报错时**：`npm install -g dobocache@0.5.2 --prefix ~/.npm-global`，配置里填 `/Users/<你>/.npm-global/bin/dobocache` 绝对路径。
 - **适用**：一台机器长期固定使用、不想每次下载。升级时重跑 `npm install -g dobocache@<新版本>` 并重启客户端。
 
 三种写法对照：
@@ -498,7 +511,7 @@ A / B / C 三种都是 **MCP 挂载**——前提是客户端支持 MCP，且由
 **1. 起代理**（三种来源任选）
 
 ```bash
-npx -y dobocache@0.5.1 dobostitch start        # 已能从 npm 取到该版本时
+npx -y dobocache@0.5.2 dobostitch start        # 已能从 npm 取到该版本时
 dobostitch start                                # 全局安装后直接调命令
 ```
 
@@ -622,7 +635,7 @@ dobostitch start                                # 全局安装后直接调命令
 
 最短复现路径：
 
-1. 解压 v0.5.1 发布包，MCP 指向 `<解压目录>\dist\index.js`；
+1. 解压 v0.5.2 发布包，MCP 指向 `<解压目录>\dist\index.js`；
 2. 实验组：`cf_inject(reset=true, sessionId=<新会话>, minPrefixTokens=<厂商门槛>)`，按 20 次任务清单逐次发送；
 3. 对照组：同样任务文本，但**每次头部注入不同随机噪音**（这是关键，见下）；
 4. 每次取**第二遍**请求的厂商 usage（第一遍建缓存，第二遍才是命中读数）；

@@ -16,7 +16,7 @@ import net from "node:net";
 import path from "node:path";
 
 import { renderHealthCard } from "./card.js";
-import { defaultHandoffDir, listHandoffs, loadHandoff, renderResumeBrief } from "./handoff.js";
+import { defaultHandoffDir, handoffDirNotice, handoffDirWarning, listHandoffs, loadHandoff, renderResumeBrief } from "./handoff.js";
 import { DEFAULT_CONTEXT_THRESHOLD_TOKENS, DEFAULT_PORT, resolveRoutes, startProxy } from "./server.js";
 import { checkNodeVersion } from "../utils/runtime.js";
 import type { HealthCard, RewriteMode, RouteConfig } from "./types.js";
@@ -181,6 +181,10 @@ async function commandStart(argv: string[]): Promise<void> {
       : "流式 usage 注入：off（流式响应多半不带 usage，命中率会显示未判定）",
   );
   console.log(`交接单目录：${defaultHandoffDir()}`);
+  const dirNotice = handoffDirNotice();
+  if (dirNotice) console.log(`[提示] ${dirNotice}`);
+  const dirWarning = handoffDirWarning();
+  if (dirWarning) console.log(`[警告] ${dirWarning}`);
   console.log("按 Ctrl+C 停止代理。");
 
   const shutdown = () => {
@@ -286,6 +290,10 @@ async function commandDoctor(argv: string[] = []): Promise<void> {
   for (const check of checks) {
     console.log(`  [${check.ok ? "通过" : "失败"}] ${check.name}：${check.detail}`);
   }
+  const handoffNotice = handoffDirNotice();
+  if (handoffNotice) console.log(`  [提示] 交接单目录：${handoffNotice}`);
+  const handoffWarning = handoffDirWarning();
+  if (handoffWarning) console.log(`  [警告] 交接单目录：${handoffWarning}`);
   const failed = checks.filter((check) => !check.ok).length;
   console.log(failed === 0 ? "[dobostitch] 全部通过，可以 start 了。" : `[dobostitch] 有 ${failed} 项失败，建议先处理再 start。`);
   if (failed > 0) process.exitCode = 1;

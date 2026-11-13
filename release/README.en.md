@@ -1,4 +1,4 @@
-# DoboCache v0.5.1 · dobostitch: one cache core, two ways to mount
+# DoboCache v0.5.2 · dobostitch: one cache core, two ways to mount
 
 > **Stop paying full price twice for the same context.**
 > DoboCache keeps the prefix of your requests stable so the **provider prompt cache you are already paying for** actually hits: the first request builds the cache, every request after that is mostly served from it. Runs entirely on your machine — no network calls, no telemetry.
@@ -16,7 +16,7 @@ None of this means the model is bad, and it is not really the vendor cache's fau
 ### 30-second start (no MCP, no client code changes, one command)
 
 ```bash
-npx -y dobocache@0.5.1 dobostitch start
+npx -y dobocache@0.5.2 dobostitch start
 ```
 
 The terminal prints a line like `接入 baseURL 填：http://127.0.0.1:27880/anthropic` (use `/openai` or `/deepseek` for those vendors). Paste that into your client's **baseURL** — keys, model names and request bodies stay untouched — then work as usual. A health card shows up in the terminal, and from the **2nd request** on it carries the hit percentage.
@@ -101,7 +101,7 @@ DoboCache is a pure-JavaScript stdio MCP server. The release bundle contains **n
 |---|---|---|
 | **Windows 10 / 11 (x64)** | ✅ **Primary platform, verified on real hardware** | End-to-end on a real machine: this 20-request controlled run (real MCP client mount + provider `usage` verification), unzip-and-run smoke test of the portable bundle, full **95** tests passing, log location observed as `%LOCALAPPDATA%\DoboCache\logs` |
 | **Linux (x86_64)** | 🟡 **Verified inside a Linux container** (not a desktop machine) | On 2026-11-04 the released bundle was actually executed on Docker `linux/amd64` with the official Node Linux image: unzip-and-run, valid `initialize` / `tools/list`, all 9 tools present, `cf_judge` hitting, `cf_inject` returning `prefixReady=true`, log written to `~/.local/state/dobocache`, `XDG_STATE_HOME` honoured, `DOBOCACHE_LOG_DIR` taking highest priority, read-only directory degrading without a crash, and Node 16 aborting with `exit 1`. **Desktop Linux with a GUI client mount, and arm64, remain unverified** (details in `兼容性说明.md`, Appendix A) |
-| **macOS (Intel / Apple Silicon)** | 🟡 **Smoke test passed in CI on real Mac machines** (not long-term use) | The CI macOS job runs on real Mac hardware: `npm ci` → `tsc` → `eslint` → `vitest` → MCP stdio handshake (`initialize` + `tools/list` with exactly 9 tools) → log-directory assertion (must land in `~/Library/Logs/DoboCache` with `logDirSource=platform`). Both architectures are in the matrix, Apple Silicon (`macos-latest`) and Intel (`macos-13`); see Actions for the latest all-green run. **Still missing**: long-session runs with a real desktop client (coding CLIs and the like) mounted |
+| **macOS (Intel / Apple Silicon)** | 🟡 **Smoke test passed in CI on real Mac machines** (not long-term use) | The CI macOS job runs on real Mac hardware: `npm ci` → `tsc` → `tsc --noEmit` → `eslint` → `vitest` → the first-run command smoke (entry forwarding / original bin / MCP main path) → MCP stdio handshake (`initialize` + `tools/list` with exactly 9 tools) → log-directory assertion (must land in `~/Library/Logs/DoboCache` with `logDirSource=platform`). Both architectures are in the matrix, Apple Silicon (`macos-latest`) and Intel (`macos-13`); see Actions for the latest all-green run. **Still missing**: long-session runs with a real desktop client (coding CLIs and the like) mounted |
 
 **We would rather state the boundary than overclaim:**
 
@@ -322,7 +322,7 @@ The white-box report card is written **into the conversation context**, which co
 
 ## 6. Install and mount (four ways: A/B/C are MCP mounts, D is the local proxy)
 
-1. Unzip `dobocache-v0.5.1-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
+1. Unzip `dobocache-v0.5.2-portable.zip` (bundles `dist` and a **production-only** `node_modules`; no `npm install` needed, and no native `.node` binaries, so a different machine or OS will not fail on an ABI mismatch);
 2. Add a **stdio** MCP server in your client's config (pick one of A / B / C below — or skip MCP entirely and use **Mode D**, which needs no client config JSON at all);
 3. Restart the client and confirm **9 tools** appear (`ping` plus `cf_judge` / `cf_tier` / `cf_inject` / `cf_warmup` / `cf_report` / `cf_meter` / `cf_prune` / `cf_normalize`). A missing tool means the server did not start — check the client log for the server's stderr.
 
@@ -370,7 +370,7 @@ macOS / Linux:
   "mcpServers": {
     "dobocache": {
       "command": "npx",
-      "args": ["-y", "dobocache@0.5.1"]
+      "args": ["-y", "dobocache@0.5.2"]
     }
   }
 }
@@ -379,12 +379,12 @@ macOS / Linux:
 - ⚠️ **On Windows you must write `npx.cmd`** (`"command": "npx.cmd"`). npm installs only `npx.cmd` on Windows — there is no `npx.exe` — so a client calling `spawn("npx")` fails with `ENOENT`. This is the most frequent MCP-on-Windows error.
 - On macOS / Linux keep `npx`; if the client spawns through a non-login shell whose PATH lacks node, use an absolute path such as `/usr/local/bin/npx`.
 - **Use when**: you want automatic version tracking, the machine is online, and you would rather not extract a zip.
-- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.5.1 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
+- **Caveat**: the version must be resolvable on npm (`npm view dobocache@0.5.2 version` should return a version); otherwise use Mode A. `npx` also caches; if an upgrade appears not to take effect, run `npm cache clean --force` or switch to Mode C.
 
 ### Mode C: global install, call the command directly
 
 ```bash
-npm install -g dobocache@0.5.1
+npm install -g dobocache@0.5.2
 ```
 
 ```json
@@ -398,7 +398,7 @@ npm install -g dobocache@0.5.1
 ```
 
 - ⚠️ **Same extension caveat on Windows**: write `"command": "dobocache.cmd"`. If the client still cannot find it, use the absolute path of the installed launcher (the `dobocache.cmd` inside the directory whose parent `npm root -g` reports).
-- **macOS / Linux permission errors**: `npm install -g dobocache@0.5.1 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
+- **macOS / Linux permission errors**: `npm install -g dobocache@0.5.2 --prefix ~/.npm-global`, then point the config at `/Users/<you>/.npm-global/bin/dobocache`.
 - **Use when**: one machine, long-term use, no repeated downloads. Upgrade by re-running `npm install -g dobocache@<new version>` and restarting the client.
 
 Comparison:
@@ -441,7 +441,7 @@ Modes A / B / C all assume your client speaks MCP and an agent decides when to c
 **1. Start the proxy** (any one source):
 
 ```bash
-npx -y dobocache@0.5.1 dobostitch start        # if npm already serves this version
+npx -y dobocache@0.5.2 dobostitch start        # if npm already serves this version
 dobostitch start                                # after a global install
 ```
 

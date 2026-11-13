@@ -1,6 +1,6 @@
 # Show: a local MCP proxy that keeps your prompt prefix stable, and logs every step
 
-**Repo:** https://github.com/dobo123123/dobocache · **Release v0.5.1:** https://github.com/dobo123123/dobocache/releases/tag/v0.5.1 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
+**Repo:** https://github.com/dobo123123/dobocache · **Release v0.5.2:** https://github.com/dobo123123/dobocache/releases/tag/v0.5.2 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
 
 *An open-source, fully local tool for coding CLIs / agent clients — mount it as a **stdio MCP server** or as a **local proxy**. No network calls, no telemetry, no sign-up.*
 
@@ -43,7 +43,7 @@ Two ways to mount it, one shared core (since v0.5.0):
 B is the only option for clients that can't do MCP — and it requires **no config file editing at all**:
 
 ```bash
-npx -y dobocache@0.5.1 dobostitch start
+npx -y dobocache@0.5.2 dobostitch start
 # or unzip the portable build and double-click start-dobostitch.cmd
 # the terminal prints: 接入 baseURL 填：http://127.0.0.1:27880/anthropic
 ```
@@ -189,6 +189,6 @@ Counter-examples welcome. If your control group hits heavily *without* noise inj
 
 **Want to try it?** The step-by-step setup guide (Chinese, beginner level, `零基础三分钟上手.md`) lives in [`release/`](https://github.com/dobo123123/dobocache/tree/main/release) — six steps from installing Node to verifying success. If you hit an error, the FAQ section there lists 13 common install failures indexed by the exact error message.
 
-Direct download: [dobocache-v0.5.1-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.5.1/dobocache-v0.5.1-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
+Direct download: [dobocache-v0.5.2-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.5.2/dobocache-v0.5.2-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
 
 *Generated with AI assistance; for reference only.*

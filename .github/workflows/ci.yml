@@ -37,12 +37,24 @@ jobs:
     continue-on-error: ${{ startsWith(matrix.os, 'macos') }}
     strategy:
       fail-fast: false
+      # 每个平台单独给超时（v0.5.2 · P1 处置选项 1）：
+      # macos-13 是 GitHub 托管 Intel runner，供给紧张时长时间排队、最后被平台取消，
+      # 一旦被取消也会把 job 拖满整个 timeout。把它单独压到 5 分钟，
+      # 好处是不再拖累整条流水线的时长；代价是偶尔仍会看到 cancelled —— 这是平台侧
+      # 供给问题，本仓无法消除，故保留矩阵项（对外"Intel 架构在 CI 矩阵内"的表述依然成立）。
       matrix:
-        # macos-latest 现为 Apple Silicon(arm64)、macos-13 为 Intel(x64)，两种架构都覆盖
-        os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
-    # 原 20 分钟：macOS 排队被取消也要拖满 15 分钟，整体耗时过长；收紧到 12 分钟。
-    # 实测正常跑完全流程 windows 39s / ubuntu 25s / macos 19s，12 分钟余量充足。
-    timeout-minutes: 12
+        include:
+          # macos-latest 现为 Apple Silicon(arm64)、macos-13 为 Intel(x64)，两种架构都覆盖
+          - os: windows-latest
+            timeout: 12
+          - os: ubuntu-latest
+            timeout: 12
+          - os: macos-latest
+            timeout: 12
+          - os: macos-13
+            timeout: 5
+    # 实测正常跑完全流程 windows 39s / ubuntu 25s / macos 19s，余量充足。
+    timeout-minutes: ${{ matrix.timeout }}
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
@@ -59,11 +71,24 @@ jobs:
       - name: 类型编译（tsc）
         run: npm run build
 
+      # v0.5.2 新增：纯类型检查（不产出 dist），与 build 分开跑，
+      # 便于在日志里一眼区分"类型错了"和"产物没生成"
+      - name: 类型检查（tsc --noEmit）
+        run: npm run typecheck
+
       - name: 代码检查（eslint）
         run: npm run lint
 
       - name: 全量单元测试（vitest）
         run: npm test
+
+      # v0.5.2 新增（P0 回归守卫）：v0.5.1 的对外首屏命令是坏的，而当时 CI 全绿 ——
+      # 原因是没有任何一支测试真跑过那条命令。这一步用 dist 产物真跑三条路径：
+      #   ① node dist/index.js dobostitch status → 入口必须转发到代理
+      #   ② node dist/proxy/cli.js status        → 原 bin 路径不得被破坏
+      #   ③ node dist/index.js + initialize      → 无参启动必须仍是纯 MCP server
+      - name: 首屏命令冒烟（入口转发 / 原 bin / MCP 主路径）
+        run: npm run smoke
 
       # 文档一致性：版本号 / 结构 / 链接 / 对外元数据口径，任一漂移即失败
       - name: 文档一致性校验（check-docs）

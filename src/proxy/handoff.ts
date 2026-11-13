@@ -4,8 +4,17 @@
  * 作用：把一次请求里"人和模型都说了什么、动过哪些文件"抽成结构化交班记录，
  * 换会话/换模型后可以一键续接。这里只做正则与字符串处理，零外部依赖、零网络。
  *
- * 落盘位置：<仓库>/data/handoff/<sessionKey>.json
- * 可用 DOBOSTITCH_HANDOFF_DIR 覆盖（便于测试与多实例隔离）。
+ * 落盘位置（v0.5.2 起，优先级由高到低）：
+ *   1. 环境变量 DOBOCACHE_HANDOFF_DIR（兼容旧名 DOBOSTITCH_HANDOFF_DIR）
+ *   2. 平台标准用户数据目录（见 utils/logDir.ts 的 platformStateRoot("handoff")）
+ *        Windows  %LOCALAPPDATA%\DoboCache\handoff
+ *        macOS    ~/Library/Application Support/DoboCache/handoff
+ *        Linux    $XDG_STATE_HOME/dobocache/handoff
+ *   3. <包内>/data/handoff（回退；会显式警告"可能被清理"）
+ *
+ * v0.5.2 变更背景：原先固定落在 <仓库>/data/handoff。用 npx 运行时仓库根就是
+ * node_modules/dobocache，交接记录于是写进 npx 缓存目录 —— `npm cache clean`
+ * 或缓存淘汰即整批消失，且每次 npx 派生目录名不同，用户昨天今天的记录不在一个地方。
  */
 
 import crypto from "node:crypto";
@@ -15,6 +24,7 @@ import { fileURLToPath } from "node:url";
 
 import type { HandoffRecord } from "./types.js";
 import { estimateTokens } from "./usage.js";
+import { platformHandoffDir } from "../utils/logDir.js";
 
 /** 单条文本字段的字符上限，防止一条超长消息把整个交接单撑爆 */
 const FIELD_CHAR_LIMIT = 600;
@@ -35,11 +45,120 @@ function repoRoot(): string {
   }
 }
 
-/** 交接单目录：环境变量优先，否则 <仓库>/data/handoff */
+/** 交接单目录来源 */
+export type HandoffDirSource = "env" | "platform" | "package";
+
+export interface HandoffDirResolution {
+  dir: string;
+  source: HandoffDirSource;
+  /** 面向人的降级说明（短句，可原样打到首屏体检卡 / doctor 上） */
+  warning?: string;
+  /** 一次性提示（例如刚把旧目录的记录搬过来），正常情况为空 */
+  notice?: string;
+}
+
+/** 目录里有几个交接单（读不到就当 0） */
+function countHandoffFiles(dir: string): number {
+  try {
+    return fs.readdirSync(dir).filter((name) => name.endsWith(".json")).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * 把旧路径（包内 data/handoff）的记录搬到新目录。
+ * 只复制不删除、不覆盖同名文件；新目录已有记录时整体跳过，避免多实例互相打架。
+ */
+function migrateLegacyHandoffDir(from: string, to: string): number {
+  if (path.resolve(from) === path.resolve(to)) return 0;
+  if (countHandoffFiles(from) === 0 || countHandoffFiles(to) > 0) return 0;
+  let copied = 0;
+  try {
+    fs.mkdirSync(to, { recursive: true });
+    for (const name of fs.readdirSync(from)) {
+      if (!name.endsWith(".json")) continue;
+      const target = path.join(to, name);
+      if (fs.existsSync(target)) continue;
+      fs.copyFileSync(path.join(from, name), target);
+      copied += 1;
+    }
+  } catch {
+    return copied;
+  }
+  return copied;
+}
+
+/** 是否真的能在这写（只读盘上 mkdir 可能成功但写文件失败，所以写探针） */
+function probeHandoffDirWritable(dir: string): boolean {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const probe = path.join(dir, `.dobostitch-write-test-${process.pid}`);
+    fs.writeFileSync(probe, "ok", "utf-8");
+    fs.rmSync(probe, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 进程内只解析一次（探测会碰磁盘，避免每个请求都 mkdir） */
+let handoffDirCache: HandoffDirResolution | null = null;
+
+/**
+ * 解析交接单目录。
+ * 环境变量优先（测试与多实例隔离靠它）；否则平台标准目录；都不可写才回退包内目录并给出警告。
+ */
+export function resolveHandoffDir(): HandoffDirResolution {
+  if (handoffDirCache) return handoffDirCache;
+
+  const fromEnv = (process.env.DOBOCACHE_HANDOFF_DIR ?? process.env.DOBOSTITCH_HANDOFF_DIR)?.trim();
+  if (fromEnv) {
+    handoffDirCache = { dir: fromEnv, source: "env" };
+    return handoffDirCache;
+  }
+
+  const platform = platformHandoffDir();
+  if (platform && probeHandoffDirWritable(platform)) {
+    const moved = migrateLegacyHandoffDir(path.join(repoRoot(), "data", "handoff"), platform);
+    handoffDirCache =
+      moved > 0
+        ? {
+            dir: platform,
+            source: "platform",
+            notice: `已把旧目录里的 ${moved} 份交接单复制到 ${platform}（原文件保留，可自行删除）。`,
+          }
+        : { dir: platform, source: "platform" };
+    return handoffDirCache;
+  }
+
+  const fallback = path.join(repoRoot(), "data", "handoff");
+  handoffDirCache = {
+    dir: fallback,
+    source: "package",
+    warning: `交接记录将写在包内目录（${fallback}），npx 缓存清理或版本升级后会丢失；建议设置环境变量 DOBOCACHE_HANDOFF_DIR 指向固定目录。`,
+  };
+  return handoffDirCache;
+}
+
+/** 交接单目录：环境变量 > 平台标准目录 > 包内回退（详见 resolveHandoffDir） */
 export function defaultHandoffDir(): string {
-  const fromEnv = process.env.DOBOSTITCH_HANDOFF_DIR?.trim();
-  if (fromEnv) return fromEnv;
-  return path.join(repoRoot(), "data", "handoff");
+  return resolveHandoffDir().dir;
+}
+
+/** 目录降级警告（仅当落到包内目录时非空） */
+export function handoffDirWarning(): string | undefined {
+  return resolveHandoffDir().warning;
+}
+
+/** 目录一次性提示（如刚迁移完旧记录） */
+export function handoffDirNotice(): string | undefined {
+  return resolveHandoffDir().notice;
+}
+
+/** 仅供测试：清掉进程内缓存，让下次调用重新解析 */
+export function resetHandoffDirCache(): void {
+  handoffDirCache = null;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

@@ -1,5 +1,25 @@
 # DoboCache Changelog
 
+## v0.5.2（2026-11-13）— 首屏命令修复：`npx dobocache@x dobostitch start` 不再挂住
+
+> 目标：v0.5.1 发布后在真实环境复验时发现，文档里给用户的第一屏代理命令 `npx dobocache@0.5.1 dobostitch start` **实际会起来一个 MCP server 并挂住**，代理根本没启动。原因是包里有两个 `bin`，`npx` 只跑与包同名的那个，入口又不读 `argv`。本版修这条路径，并把「记录写进包目录」一并挪到平台数据目录。
+
+### 修复
+1. **入口转发（P0）**：`src/index.ts` 新增 `forwardToProxyIfNeeded`——`argv[2] === "dobostitch"` 时把后续参数原样交给代理 CLI；`src/proxy/cli.ts` 导出可复用的 `main`，两条入口共用同一份启动逻辑。
+2. **交接目录落点**：`src/proxy/logDir.ts` / `handoff.ts` 改为平台数据目录（Windows `%LOCALAPPDATA%\DoboCache\handoff`、macOS `~/Library/Application Support/DoboCache/handoff`、Linux `$XDG_DATA_HOME/dobocache/handoff`），首次启动自动迁移旧目录会话（本机实测迁移 43 个）。不再往 `node_modules` 里写记录。
+3. **CI 矩阵**：`.github/workflows/ci.yml` 按平台设置独立 `timeout-minutes`，`macos-13` 不再被固定超时连带取消。
+4. **依赖**：`@hono/node-server` 升到 `2.1.8`（dependabot 建议项）。
+
+### 文档与守卫
+5. `scripts/check-docs.mjs` 新增 **npx 写法守卫**：文档里出现 `npx dobocache@x.y.z dobostitch ...` 这类错配直接报 ERROR。
+6. `scripts/smoke-firstrun.mjs`（新增，`npm run smoke`）把 P0 变成回归断言：① 入口转发能起来 ② 原 `dobostitch` bin 不受影响 ③ MCP 主路径仍正常握手；已接入 CI。
+7. 4 份文档（根 README / 中文 README / 英文 README / 零基础三分钟上手 / 两份社区帖）的代理启动写法统一订正；`package.json` 补 `typecheck` / `smoke` 脚本。
+
+### 未改动与边界
+8. 缓存内核、9 个工具的名称/入参/返回结构、代理转发与命中判定逻辑与 v0.5.1 **完全一致**；`dist` 除版本字段外无行为变化。
+9. 命中率数字未变，**不宣称更快更强**。
+10. 代理形态仍只在 Windows 11 x64 真机验证；Linux / macOS 的交接目录落点未真机跑过。
+
 ## v0.5.1（2026-11-13）— 文档与元数据订正：把「两种挂法」写全到每一份对外文档
 
 > 目标：v0.5.0 新增了本地代理形态（`dobostitch`），但对外文档里只有根 README 与英文 README 写到了它——便携包内的中文 README、零基础三分钟上手、FAQ、两份社区帖仍只讲 MCP 形态。用户拿到包、拿到帖子的那一刻，看不到"最容易上手的那条路"。本版**不改任何缓存或代理逻辑**，只补文档、统一定位口径、修掉两处会 404 的错配链接。

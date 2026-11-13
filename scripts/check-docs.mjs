@@ -32,7 +32,7 @@ const DOCS = [
 ];
 
 /** 历史存在过的版本号（用于「引用了不存在的版本」检查） */
-const KNOWN_VERSIONS = ['0.3.0', '0.4.0', '0.4.1', '0.4.2', '0.4.3', '0.4.4', '0.4.6', '0.4.7', '0.4.8', '0.4.9', '0.5.0', '0.5.1'];
+const KNOWN_VERSIONS = ['0.3.0', '0.4.0', '0.4.1', '0.4.2', '0.4.3', '0.4.4', '0.4.6', '0.4.7', '0.4.8', '0.4.9', '0.5.0', '0.5.1', '0.5.2'];
 
 const errors = [];
 const warns = [];
@@ -61,9 +61,27 @@ for (const rel of MAIN_READMES) {
 }
 
 /* ---------- 2. npm 安装命令与便携包名必须是当前版本 ---------- */
+/** 历史叙述豁免（v0.5.2 起）：行内含这些字样时，引用旧版版本号属「讲清楚上一版错在哪」，
+ *  降级为 WARN 而不阻塞发布；同理 `-p dobocache@<旧版>` 是官方给出的旧版兼容写法，也豁免。 */
+const HISTORY_MARKERS = ['旧版', '历史', '的问题', '上一版'];
+const isHistoricalRef = (text, index, pkgRef) => {
+  const lineStart = text.lastIndexOf('\n', index) + 1;
+  const lineEnd = text.indexOf('\n', index);
+  const line = text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd);
+  if (HISTORY_MARKERS.some((k) => line.includes(k))) return true;
+  const before = text.slice(Math.max(0, index - 8), index);
+  return /-p\s+$/.test(before) || pkgRef.startsWith('-p ');
+};
 for (const [rel, text] of docs) {
   for (const m of text.matchAll(/dobocache@([\d.]+)/g)) {
-    if (m[1] !== V) errors.push(`[安装命令] ${rel} 出现 dobocache@${m[1]}，应为 @${V}`);
+    if (m[1] !== V) {
+      const pkgRef = text.slice(Math.max(0, m.index - 8), m.index + m[0].length);
+      if (isHistoricalRef(text, m.index, pkgRef)) {
+        warns.push(`[安装命令·历史引用] ${rel} 提到 dobocache@${m[1]}（当前 ${V}），已豁免`);
+      } else {
+        errors.push(`[安装命令] ${rel} 出现 dobocache@${m[1]}，应为 @${V}`);
+      }
+    }
   }
   for (const m of text.matchAll(/dobocache-(v[\d.]+)-portable\.zip/g)) {
     if (m[1] !== V_TAG) errors.push(`[包名] ${rel} 引用 ${m[1]} 便携包，应为 ${V_TAG}`);
@@ -193,6 +211,53 @@ for (const rel of MAIN_READMES) {
       // 已上架：不得残留未上架表述，且必须给出 npx 一次性运行写法
       if (hasAbsolute) errors.push(`[npm 状态] ${rel} 已上架，但仍含「未上架」表述，需清理`);
       if (!hasNpx) errors.push(`[npm 状态] ${rel} 已上架，但缺少 npx 一次性运行写法`);
+    }
+  }
+}
+
+/* ---------- 11. npx 命令写法必须与入口实现匹配（v0.5.2 起，P0 回归守卫） ---------- */
+// 背景：`npx <包名> <参数...>` 只会执行与包同名的那个 bin（dobocache），
+// 只有 `npx -p <包名> <bin>` 才能真正指定别的 bin。v0.5.1 首屏命令写成
+// `npx -y dobocache@0.5.1 dobostitch start`，实际启动的是 MCP server：stdin 开着就
+// 静默挂死、stdin 关了就地退出，用户永远走不到代理。
+// v0.5.2 在 src/index.ts 增加了子命令转发（forwardToProxyIfNeeded），该写法才重新成立。
+// 本检查把「文档写法 ↔ 入口实现」的对应关系固化成断言，两边不一致就报错：
+//   · 入口有转发   → 允许 `npx -y dobocache@X dobostitch ...`
+//   · 入口没转发   → 必须写 `npx -y -p dobocache@X dobostitch ...`
+const SUBCOMMANDS = ['start', 'status', 'resume', 'doctor'];
+let forwardingEnabled = false;
+try {
+  const entrySrc = readFileSync(join(ROOT, 'src', 'index.ts'), 'utf8');
+  forwardingEnabled = /forwardToProxyIfNeeded/.test(entrySrc) && /PROXY_SUBCOMMANDS/.test(entrySrc);
+} catch {
+  errors.push('[入口转发] 读不到 src/index.ts，无法判定 npx 写法是否成立');
+}
+
+for (const [rel, text] of docs) {
+  for (const line of text.split(/\r?\n/)) {
+    if (!/npx\b/.test(line)) continue;
+    // 只看「包名 + 子命令/bin 名」混写的命令
+    if (!/dobocache@[\d.]+/.test(line) || !/dobostitch/.test(line)) continue;
+    const hasPackageFlag = /(^|\s)(-p|--package)(=|\s)/.test(line);
+    if (!hasPackageFlag && !forwardingEnabled) {
+      errors.push(
+        `[npx 写法] ${rel} 用了「npx <包名> dobostitch ...」但入口未实现子命令转发，` +
+          `该命令实际启动的是 MCP server（会挂死）。请改为「npx -y -p dobocache@X dobostitch ...」，或在 src/index.ts 补转发。`,
+      );
+    }
+  }
+}
+
+/* 子命令名必须与入口转发白名单一致，防止文档写 start 而入口只认 run */
+if (forwardingEnabled) {
+  const entrySrc = readFileSync(join(ROOT, 'src', 'index.ts'), 'utf8');
+  const m = entrySrc.match(/PROXY_SUBCOMMANDS\s*=\s*new Set\(\[([^\]]*)\]\)/);
+  if (m) {
+    const whitelist = [...m[1].matchAll(/"([a-z]+)"/g)].map((x) => x[1]);
+    for (const sub of SUBCOMMANDS) {
+      if (!whitelist.includes(sub)) {
+        warns.push(`[子命令] 文档/备忘里的「${sub}」不在入口转发白名单（${whitelist.join('/')}）中`);
+      }
     }
   }
 }
