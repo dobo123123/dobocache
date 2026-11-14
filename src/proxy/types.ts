@@ -114,6 +114,14 @@ export interface ProxyOptions {
    * 关掉后流式响应通常不带 usage，命中率会长期"未判定"。
    */
   injectUsage?: boolean;
+  /**
+   * v0.6.0（C-1）：代理侧白盒落盘目录。
+   * 不传时取 utils/logDir.ts 的平台标准可写目录，与 cf_report 读盘目录同源，
+   * 保证"一次 cf_* 都不调，cf_report 仍能聚合到代理写的行"。
+   */
+  whiteboxLogDir?: string;
+  /** v0.6.0（C-1）：代理侧白盒是否落盘，默认 true；关掉只统计不写文件 */
+  whiteboxFileWrite?: boolean;
 }
 
 /**

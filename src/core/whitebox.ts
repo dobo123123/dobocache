@@ -163,6 +163,19 @@ export interface LogFileInfo {
 
 const LOG_FILE_RE = /^dobocache-(\d{4}-\d{2}-\d{2})\.log\.jsonl(?:\.(\d+))?$/;
 
+/**
+ * v0.6.0（C-1）：代理侧观测行的场景标识。
+ *
+ * 代理（dobostitch）与 MCP 共用同一份日志文件，但两者语义不同：
+ *   - MCP 侧（cf_inject / cf_judge）行 = 「我做了改写，省了多少」；
+ *   - 代理侧行 = 「我原样转发，厂商 usage 报了多少命中」。
+ * 若把代理行混入主统计，代理侧 savedTokens 恒为 0 会把 savedPct 均值拉低，
+ * 看起来像「缓存效果变差」。因此落盘时打此标记，聚合时按标记分流，
+ * 主统计口径不变，代理观测单独成一段（cf_report 的 proxy 字段）。
+ */
+export const PROXY_SCENARIO = "proxy_observe";
+
+
 /** 解析日志文件名；非本模块生成的文件返回 null（清理时绝不碰用户自己的文件） */
 export function parseLogFileName(fileName: string): LogFileInfo | null {
   const m = LOG_FILE_RE.exec(fileName);
@@ -386,6 +399,9 @@ export class WhiteboxLogger {
   private writeFailWarned = false;
   // v0.4.2：按会话聚合（sessionId → 累计）
   private readonly perSession = new Map<string, { stats: WhiteboxStats; hitRateSum: number }>();
+  // v0.6.0（C-1）：代理侧观测桶（与被改写口径隔离，只统计不改写造成的节省）
+  private proxyTotal = this.zeroStats();
+  private proxyHitRateSum = 0;
 
   constructor(opts: WhiteboxOptions = {}) {
     // 日志目录不再依赖 cwd：显式目录 > 平台标准可写目录 > <cwd>/data/logs > 不落盘。
@@ -601,24 +617,57 @@ export class WhiteboxLogger {
       this.refreshStats(entry.stats, entry.hitRateSum);
     }
 
-    if (this.fileWrite) {
-      try {
-        fs.mkdirSync(this.logDir, { recursive: true });
-        // v0.4.7 缺口2：写盘前先做维护（过期清理每天一次、超限滚动每次检查）。
-        // 维护内部已吞掉所有异常，这里不额外 try，避免把"清理失败"误判成"写日志失败"。
-        this.runLogMaintenance(report.ts);
-        // v0.4.4 隐私脱敏：落盘前把 requestId / sessionId 换成无内容语义的短标识，并写入请求序号
-        this.seq += 1;
-        const safe = sanitizeForLog(report, this.seq);
-        fs.appendFileSync(this.logFileFor(report.ts), `${JSON.stringify(safe)}\n`, "utf-8");
-      } catch (err) {
-        // 日志落盘失败不阻断主流程（白盒是增强而非依赖）：仅首次提醒一句到 stderr
-        if (!this.writeFailWarned) {
-          this.writeFailWarned = true;
-          this.fileWrite = false;
-          const code = (err as NodeJS.ErrnoException)?.code ?? "UNKNOWN";
-          console.error(`[dobocache] 日志写入失败（${code}）：${this.logDir}；本次运行不再写日志文件，缓存功能不受影响`);
-        }
+    this.appendToLog(report);
+  }
+
+  /**
+   * v0.6.0（C-1）：代理侧逐请求观测落盘。
+   *
+   * 与 record() 的区别只有一点：**不进主统计桶**。
+   * 代理是原样转发（不做注入改写），savedTokens 恒为 0；若混进主桶会把 savedPct 均值
+   * 拉成"看起来缓存变差"。这里单独累计到 proxy 桶，写盘仍走同一份日志文件，
+   * 行内 scenario=PROXY_SCENARIO 作为来源标记，聚合时据此分流。
+   *
+   * 命中率口径与主统计一致：只认厂商 usage 回传（拿不到就是 null=未判定，绝不写 0）。
+   */
+  recordProxyObserved(report: SavingsReport): void {
+    this.proxyTotal.calls += 1;
+    this.proxyTotal.rawTokens += report.rawTokens;
+    this.proxyTotal.optimizedTokens += report.optimizedTokens;
+    this.proxyTotal.savedTokens += report.savedTokens;
+    this.proxyTotal.savedUsd += report.savedUsd;
+    if (report.hitRate !== null) {
+      this.proxyTotal.judgedCalls += 1;
+      this.proxyHitRateSum += report.hitRate;
+    }
+    this.refreshStats(this.proxyTotal, this.proxyHitRateSum);
+    this.appendToLog(report);
+  }
+
+  /** 进程内代理侧观测快照；一次代理流量都没有时为 null（区别于"全 0"） */
+  get proxyStats(): WhiteboxStats | null {
+    return this.proxyTotal.calls > 0 ? { ...this.proxyTotal } : null;
+  }
+
+  /** 落盘（record 与 recordProxyObserved 共用；失败仅首次提醒，不影响缓存主流程） */
+  private appendToLog(report: SavingsReport): void {
+    if (!this.fileWrite) return;
+    try {
+      fs.mkdirSync(this.logDir, { recursive: true });
+      // v0.4.7 缺口2：写盘前先做维护（过期清理每天一次、超限滚动每次检查）。
+      // 维护内部已吞掉所有异常，这里不额外 try，避免把"清理失败"误判成"写日志失败"。
+      this.runLogMaintenance(report.ts);
+      // v0.4.4 隐私脱敏：落盘前把 requestId / sessionId 换成无内容语义的短标识，并写入请求序号
+      this.seq += 1;
+      const safe = sanitizeForLog(report, this.seq);
+      fs.appendFileSync(this.logFileFor(report.ts), `${JSON.stringify(safe)}\n`, "utf-8");
+    } catch (err) {
+      // 日志落盘失败不阻断主流程（白盒是增强而非依赖）：仅首次提醒一句到 stderr
+      if (!this.writeFailWarned) {
+        this.writeFailWarned = true;
+        this.fileWrite = false;
+        const code = (err as NodeJS.ErrnoException)?.code ?? "UNKNOWN";
+        console.error(`[dobocache] 日志写入失败（${code}）：${this.logDir}；本次运行不再写日志文件，缓存功能不受影响`);
       }
     }
   }
@@ -705,6 +754,8 @@ export class WhiteboxLogger {
   report(): {
     today: WhiteboxStats;
     total: WhiteboxStats;
+    /** v0.6.0（C-1）：代理侧观测快照（原样转发口径）；无代理流量为 null */
+    proxy: WhiteboxStats | null;
     perSession?: Array<{ sessionId: string; stats: WhiteboxStats }>;
     logDir: string;
     logFile: string;
@@ -720,6 +771,7 @@ export class WhiteboxLogger {
     return {
       today: { ...this.today },
       total: { ...this.total },
+      proxy: this.proxyStats,
       perSession,
       logDir: this.logDir,
       logFile: this.logFileFor(Date.now()),
@@ -754,6 +806,8 @@ export class WhiteboxLogger {
     lines: number;
     skippedLines: number;
     stats: WhiteboxStats;
+    /** v0.6.0（C-1）：代理侧观测（从 scenario=proxy_observe 的行单独聚合）；无则为 null */
+    proxy: WhiteboxStats | null;
     perSession?: Array<{ sessionId: string; stats: WhiteboxStats }>;
     logDir: string;
     logPolicy: LogPolicy;
@@ -765,6 +819,9 @@ export class WhiteboxLogger {
 
     const stats = this.zeroStats();
     let hitRateSum = 0;
+    // v0.6.0（C-1）：代理侧观测行单独成桶，不混入主统计（否则 savedPct 被 0 拉低）
+    let proxyStats: WhiteboxStats | null = null;
+    let proxyHitRateSum = 0;
     const sessionAgg = opts.perSession ? new Map<string, { stats: WhiteboxStats; hitRateSum: number }>() : null;
     let files = 0;
     let lines = 0;
@@ -809,6 +866,21 @@ export class WhiteboxLogger {
         const savedUsd = Number(row.savedUsd) || 0;
         const hitRate = typeof row.hitRate === "number" ? row.hitRate : null;
 
+        // v0.6.0（C-1）：代理观测行（原样转发，savedTokens 恒 0）→ 单独桶，不计入主口径
+        if (row.scenario === PROXY_SCENARIO) {
+          proxyStats ??= this.zeroStats();
+          proxyStats.calls += 1;
+          proxyStats.rawTokens += rawTokens;
+          proxyStats.optimizedTokens += optimizedTokens;
+          proxyStats.savedTokens += savedTokens;
+          proxyStats.savedUsd += savedUsd;
+          if (hitRate !== null) {
+            proxyStats.judgedCalls += 1;
+            proxyHitRateSum += hitRate;
+          }
+          continue;
+        }
+
         stats.calls += 1;
         stats.rawTokens += rawTokens;
         stats.optimizedTokens += optimizedTokens;
@@ -839,6 +911,7 @@ export class WhiteboxLogger {
     }
 
     this.refreshStats(stats, hitRateSum);
+    if (proxyStats) this.refreshStats(proxyStats, proxyHitRateSum);
     const perSession = sessionAgg
       ? [...sessionAgg.entries()]
           .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
@@ -856,6 +929,7 @@ export class WhiteboxLogger {
       lines,
       skippedLines,
       stats,
+      proxy: proxyStats,
       perSession,
       logDir: this.logDir,
       logPolicy: this.logPolicy,
@@ -870,6 +944,9 @@ export class WhiteboxLogger {
     this.todayHitRateSum = 0;
     this.total = this.zeroStats();
     this.totalHitRateSum = 0;
+    // v0.6.0（C-1）：代理观测桶一并清零，避免 reset 后旧数据残留
+    this.proxyTotal = this.zeroStats();
+    this.proxyHitRateSum = 0;
     this.perSession.clear();
   }
 }

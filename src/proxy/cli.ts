@@ -22,6 +22,7 @@ import { renderHealthCard } from "./card.js";
 import { defaultHandoffDir, handoffDirNotice, handoffDirWarning, listHandoffs, loadHandoff, renderResumeBrief } from "./handoff.js";
 import { DEFAULT_CONTEXT_THRESHOLD_TOKENS, DEFAULT_PORT, resolveRoutes, startProxy } from "./server.js";
 import { checkNodeVersion } from "../utils/runtime.js";
+import { ensureAgentRules as ensureAgentRulesAt } from "../rules.js";
 import type { HealthCard, RewriteMode, RouteConfig } from "./types.js";
 
 const USAGE = `dobostitch —— DoboCache 本地代理层
@@ -428,13 +429,26 @@ async function commandAttach(argv: string[]): Promise<void> {
   );
 }
 
+function ensureAgentRules(dryRun: boolean): void {
+  for (const r of ensureAgentRulesAt(process.cwd(), dryRun)) {
+    const verb = r.action === "created" || r.action === "preview-created"
+      ? "新建"
+      : r.action === "appended" || r.action === "preview-appended"
+        ? "追加"
+        : "更新";
+    if (dryRun) console.log(`[dobostitch] 使用规程：将${verb} ${r.file}（预览，未写入）`);
+    else console.log(`[dobostitch] 使用规程：已${verb} ${r.file}`);
+  }
+}
+
 /** setup：一条命令完成"探测底座 → 写配置 → 注册自启"，小白唯一需要记的命令 */
 async function commandSetup(argv: string[]): Promise<void> {
   const dryRun = argv.includes("--dry-run");
-  console.log("[dobostitch] 一键接入：识别本机 AI 客户端 → 写入 MCP 配置 → 注册开机自启");
+  console.log("[dobostitch] 一键接入：识别本机 AI 客户端 → 写入 MCP 配置 → 注册开机自启 → 写入使用规程");
   console.log("");
 
   await commandAttach(dryRun ? ["--dry-run", "--no-autostart"] : ["--no-autostart"]);
+  ensureAgentRules(dryRun);
   if (dryRun) return;
 
   const located = findTargets("auto").flatMap((target) => target.locate());

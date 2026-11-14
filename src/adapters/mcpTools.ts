@@ -75,7 +75,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 命中判定
   server.tool(
     "cf_judge",
-    "判定当前请求能否命中既有缓存上下文：关键词分层（实体锚词/意图修饰词）、三层匹配、时效衰减、负向过滤，输出可解释证据。",
+    "判定当前请求能否命中既有缓存上下文：关键词分层（实体锚词/意图修饰词）、三层匹配、时效衰减、负向过滤，输出可解释证据。【何时调】要判断「这段历史/记忆值不值得复用、能不能命中」时，在 cf_inject 之前调一次；不要每轮都调。",
     {
       query: z.string().min(1).describe("当前请求文本（不能为空：空文本无实体锚词，判定结果恒为未命中）"),
       entries: z.array(EntrySchema).describe("缓存条目列表（记忆/历史对话）"),
@@ -164,7 +164,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 价值分级准入
   server.tool(
     "cf_tier",
-    "对候选记忆/上下文片段做价值分级准入：提纯去噪 → A/B/C 分级 → 按预算从高到低填充，输出准入列表与丢弃明细。",
+    "对候选记忆/上下文片段做价值分级准入：提纯去噪 → A/B/C 分级 → 按预算从高到低填充，输出准入列表与丢弃明细。【何时调】候选片段超出预算、需要决定「留哪些、丢哪些」时；片段很少（不足 5 条）可直接注入，不必先分级。",
     {
       fragments: z.array(FragmentSchema).describe("候选片段列表"),
       query: z.string().optional().describe("用于评分的当前请求"),
@@ -217,7 +217,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 记忆提纯注入（会话增量模式）
   server.tool(
     "cf_inject",
-    "会话增量注入：固定版本化前缀（规则块+分级片段+固定补充块）逐字节不变，新内容（本次请求+易变内容）只追加到尾部 tail；同一 sessionId 自动冻结前缀支持跨请求复用；前缀不足最小有效长度时自动补高价值片段/固定文档块过门槛。",
+    "会话增量注入：固定版本化前缀（规则块+分级片段+固定补充块）逐字节不变，新内容（本次请求+易变内容）只追加到尾部 tail；同一 sessionId 自动冻结前缀支持跨请求复用；前缀不足最小有效长度时自动补高价值片段/固定文档块过门槛。【何时调】发请求前需要稳定前缀时：同一会话首次 reset=true，之后同一 sessionId 增量追加；短对话、一次性提问不必调用。",
     {
       request: z.string().describe("当前请求文本（动态增量 tail）"),
       fragments: z.array(FragmentSchema).describe("已分级准入片段（首次请求时冻结，后续请求复用）"),
@@ -411,7 +411,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 测量快照
   server.tool(
     "cf_meter",
-    "输出测量仪表快照：判定命中率、平均分、价值分级分布、预计命中 token/比例；v0.2.1 新增按请求累计计费相对值曲线（累计命中/未命中 tokens）。注意：此处的 hitRate 是「cf_judge 判定命中率」（DoboCache 内部召回判定口径），且无判定样本时为 null（未判定，勿读作 0%）；厂商 usage 回传的真实缓存命中率请看 cf_report 的 hitRate / judgedCalls。",
+    "输出测量仪表快照：判定命中率、平均分、价值分级分布、预计命中 token/比例；v0.2.1 新增按请求累计计费相对值曲线（累计命中/未命中 tokens）。注意：此处的 hitRate 是「cf_judge 判定命中率」（DoboCache 内部召回判定口径），且无判定样本时为 null（未判定，勿读作 0%）；厂商 usage 回传的真实缓存命中率请看 cf_report 的 hitRate / judgedCalls。【何时调】用户问「当前判定/召回质量」时；问「真实缓存命中多少」请改用 cf_report（读落盘日志、跨进程累计）。",
     {
       reset: z.boolean().optional().describe("是否清空计数器后输出空快照"),
     },
@@ -433,7 +433,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // v0.2.1 预热工具：显式建立厂商前缀缓存
   server.tool(
     "cf_warmup",
-    "预热工具（v0.2.1）：在正式请求前显式调用一次，用当前冻结前缀（sessionId）或传入片段构造最小占位请求；客户端需将返回的 prompt 发一次 LLM 请求以触发厂商前缀缓存建立。注意：必须显式调用、默认不自动触发；该占位请求本身会产生少量计费（按未命中计价系数）；命中率无法由 server 侧确认，请以下一次请求的 usage 为准。",
+    "预热工具（v0.2.1）：在正式请求前显式调用一次，用当前冻结前缀（sessionId）或传入片段构造最小占位请求；客户端需将返回的 prompt 发一次 LLM 请求以触发厂商前缀缓存建立。注意：必须显式调用、默认不自动触发；该占位请求本身会产生少量计费（按未命中计价系数）；命中率无法由 server 侧确认，请以下一次请求的 usage 为准。【何时调】确认紧接着会有一次长上下文请求、想先把厂商缓存建立起来时；日常短任务不要调（占位请求本身也要计费）。",
     {
       sessionId: z.string().optional().describe("会话标识；存在冻结前缀时基于冻结前缀构造占位请求"),
       request: z.string().optional().describe("占位请求文本（默认固定占位符）"),
@@ -488,7 +488,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 白盒累计统计（v0.4.1）
   server.tool(
     "cf_report",
-    "历史报表：从本地白盒日志汇总请求次数、厂商 usage 真实缓存命中率、原始/优化 token、预计命中 token 与命中比例，支持 total / per_session 聚合，附带 cardMode（白盒卡片档位，默认 quiet）。与 cf_meter 的分工：cf_report 读落盘日志，可跨进程、跨天累计（source=disk，进程重启不丢）；cf_meter 只报当前进程内即时快照。命中率为 null 表示本期没有可判定的厂商 usage 数据（未判定），不是 0%。日志默认写平台标准可写目录（`DOBOCACHE_LOG_DIR` 可覆盖），只在本机、不含提问原文、不占对话 token；按「单文件 10MB 轮转 + 默认保留 7 天」自动维护（`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），返回中的 logPolicy 即当前生效值。",
+    "历史报表：从本地白盒日志汇总请求次数、厂商 usage 真实缓存命中率、原始/优化 token、预计命中 token 与命中比例，【何时调】任务收尾、或用户问「缓存效果怎么样/命中多少」时调一次即可（读落盘日志，跨进程跨天累计，重启不丢）；不要每轮轮询。支持 total / per_session 聚合，附带 cardMode（白盒卡片档位，默认 quiet）。与 cf_meter 的分工：cf_report 读落盘日志，可跨进程、跨天累计（source=disk，进程重启不丢）；cf_meter 只报当前进程内即时快照。命中率为 null 表示本期没有可判定的厂商 usage 数据（未判定），不是 0%。日志默认写平台标准可写目录（`DOBOCACHE_LOG_DIR` 可覆盖），只在本机、不含提问原文、不占对话 token；按「单文件 10MB 轮转 + 默认保留 7 天」自动维护（`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），返回中的 logPolicy 即当前生效值。",
     {
       reset: z.boolean().optional().describe("是否清空累计计数后输出空统计"),
       aggregateBy: z.enum(["total", "per_session"]).optional().describe("聚合维度（v0.4.2，默认 total）：total=进程内累计；per_session=按会话分组）"),
@@ -556,7 +556,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 工具输出修剪
   server.tool(
     "cf_prune",
-    "压缩你传入的文本，为稳定前缀腾出空间：去重行、压缩空白，按 maxChars / maxLines 双上限截断（默认保留头部），返回修剪前后体积比与丢弃行数。输入只认参数里的 text 字符串，输出是可直接拼进上下文的短文本；要处理结构化行数据用 cf_normalize。白盒日志由服务端自维护（单文件 10MB 轮转、默认保留 7 天，`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），体积无需人工干预。",
+    "压缩你传入的文本，为稳定前缀腾出空间：去重行、压缩空白，按 maxChars / maxLines 双上限截断（默认保留头部），返回修剪前后体积比与丢弃行数。输入只认参数里的 text 字符串，输出是可直接拼进上下文的短文本；【何时调】工具输出很长、要压进上下文又不想破坏前缀稳定性时。要处理结构化行数据用 cf_normalize。白盒日志由服务端自维护（单文件 10MB 轮转、默认保留 7 天，`DOBOCACHE_LOG_MAX_MB` / `DOBOCACHE_LOG_KEEP_DAYS` 可调），体积无需人工干预。",
     {
       text: z.string().describe("原始工具输出"),
       maxChars: z.number().int().min(1).optional().describe("最大字符数，默认 2000；必须为 ≥ 1 的整数"),
@@ -593,7 +593,7 @@ export function registerCacheTools(server: McpServer, meter: Meter, whitebox: Wh
   // 结构化结果确定性归一
   server.tool(
     "cf_normalize",
-    "归一化结构化行数据（对象数组）：按字段白名单裁剪 + 稳定排序，让内容相同但顺序抖动的返回归为同一个缓存键，输出归一后的 rows 与 `nk-` 前缀键指纹。与 cf_prune 的分工：cf_normalize 吃 rows 数组、产出稳定键；cf_prune 吃纯文本、产出短文本。",
+    "归一化结构化行数据（对象数组）：按字段白名单裁剪 + 稳定排序，让内容相同但顺序抖动的返回归为同一个缓存键，输出归一后的 rows 与 `nk-` 前缀键指纹。与 cf_prune 的分工：cf_normalize 吃 rows 数组、产出稳定键；cf_prune 吃纯文本、产出短文本。【何时调】同类工具多次返回、内容相同但字段顺序抖动导致缓存键反复失效时调一次，把顺序固定下来。",
     {
       rows: z.array(z.record(z.string(), z.unknown())).describe("结构化行数据（对象数组），排序依据字段名而非原始行序"),
       fields: z.array(z.string()).optional().describe("保留字段白名单；不传则保留全部字段"),

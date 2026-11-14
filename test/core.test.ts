@@ -31,6 +31,7 @@ import { Meter } from "../src/core/meter.js";
 import { parseNodeMajor, checkNodeVersion, MIN_NODE_MAJOR } from "../src/utils/runtime.js";
 import { platformLogDir, resolveLogDir } from "../src/utils/logDir.js";
 import { WhiteboxLogger, detectDuplicateLines, formatReportCard, reportSignatureLine, REPORT_REPO_URL, sanitizeForLog, resolveCardMode, CARD_MODE_ENV } from "../src/core/whitebox.js";
+import { ensureAgentRules, renderRulesBlock, RULES_BEGIN, RULES_END } from "../src/rules.js";
 import { stableKey, stableStringify, estimateTokens, hashString } from "../src/utils/serialize.js";
 import { pruneToolOutput } from "../src/utils/prune.js";
 import { fingerprintPrompt, fingerprintSession, ensureRequestId, ensureSessionId } from "../src/utils/privacy.js";
@@ -1176,6 +1177,73 @@ describe("v0.4.6 口径修正：卡片默认关 / 命中率未判定 / 请求序
     expect(agg.files).toBe(0);
     expect(agg.stats.calls).toBe(0);
     expect(agg.stats.hitRate).toBeNull();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  // ── v0.6.0（C-3）：汇总与逐轮必须同源 ────────────────────────────────────
+  // 29 号单暴露的最严重问题是"汇总行写 2.5%~50.0%、逐轮表却全是 99%"——同一份档案里
+  // 两个口径对不上，读者无法判断该信谁。C-3 的约束就是：汇总只能由逐轮行现算，
+  // 不允许另存一份冻结的汇总文本。这里锁死三件事：代理汇总=逐轮算术平均、
+  // 主统计不被污染、没有可判定样本时为 null 而不是 0%。
+  it("v0.6.0 C-3：代理侧汇总 = 逐轮 hitRate 的算术平均，且不污染主统计", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dobocache-c3-"));
+    const perRound = [90, 80, 100, 20];
+    const day = new Date().toISOString().slice(0, 10);
+    const lines =
+      perRound
+        .map((hitRate, i) =>
+          JSON.stringify({
+            at: new Date().toISOString(),
+            scenario: "proxy_observe",
+            mode: "proxy",
+            requestId: `req-c3-${i}`,
+            rawTokens: 1000,
+            optimizedTokens: 1000,
+            savedTokens: 0,
+            savedUsd: 0,
+            hitRate,
+            reqIndex: i + 1,
+          }),
+        )
+        .join("\n") + "\n";
+    fs.writeFileSync(path.join(dir, `dobocache-${day}.log.jsonl`), lines, "utf-8");
+
+    const w = new WhiteboxLogger({ logDir: dir, fileWrite: false });
+    const agg = w.aggregateFromDisk();
+    const expected = Math.round((perRound.reduce((a, b) => a + b, 0) / perRound.length) * 10) / 10;
+
+    expect(agg.proxy?.calls).toBe(4);
+    expect(agg.proxy?.judgedCalls).toBe(4);
+    expect(agg.proxy?.hitRate).toBe(expected); // 汇总与逐轮同源，不是另存的一份文本
+    expect(agg.stats.calls).toBe(0); // 代理观测不混进主统计
+    expect(agg.stats.hitRate).toBeNull(); // 主统计无样本：未判定，不是 0%
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  // ── v0.6.0（C-4）：使用规程写入必须幂等，且不动块外内容 ──────────────────
+  it("v0.6.0 C-4：规程块幂等写入（新建→更新），块外内容一字不动", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dobocache-rules-"));
+    const file = path.join(dir, "AGENTS.md");
+    fs.writeFileSync(file, "# 我的项目说明\n\n原有内容，不要动。\n", "utf-8");
+
+    const first = ensureAgentRules(dir, false, ["AGENTS.md"]);
+    expect(first[0].action).toBe("appended");
+    const afterFirst = fs.readFileSync(file, "utf-8");
+    expect(afterFirst.startsWith("# 我的项目说明\n\n原有内容，不要动。")).toBe(true);
+    expect(afterFirst).toContain(RULES_BEGIN);
+    expect(afterFirst.split(RULES_BEGIN).length - 1).toBe(1);
+
+    const second = ensureAgentRules(dir, false, ["AGENTS.md"]);
+    expect(second[0].action).toBe("updated");
+    const afterSecond = fs.readFileSync(file, "utf-8");
+    expect(afterSecond.split(RULES_BEGIN).length - 1).toBe(1); // 不重复追加
+    expect(afterSecond.split(RULES_END).length - 1).toBe(1);
+    expect(afterSecond.split("原有内容，不要动。").length - 1).toBe(1); // 用户内容未被覆盖
+    expect(afterSecond).toContain(renderRulesBlock());
+
+    const preview = ensureAgentRules(dir, true, ["AGENTS.md"]);
+    expect(preview[0].wrote).toBe(false);
+    expect(fs.readFileSync(file, "utf-8")).toBe(afterSecond); // dry-run 不改文件
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

@@ -21,6 +21,18 @@
 - **重复接入时的误导性输出**：两个目标文件都判定「已是接入状态」时，程序仍继续打印「没识别到可自动接入的底座」并吐出通用片段，用户会误判为接入失败。改为把「已是接入状态」也计入已识别底座，收尾输出「已是接入状态，无需重复执行」。
 - **`--revert` 会丢原值却称"已退回接入前状态"**：原先一律把 `ANTHROPIC_BASE_URL` 删成官方默认；若用户接入前本就在用其它代理（本机即 27950），退回后原配置被抹掉。改为接入时把原值记进 sidecar，退回时优先复原原值，仅在无原值时删键，文案按实际情况直述。
 
+### 修复（31 号单 C-1~C-6，2026-11-14 二轮，含「暂不发版」决定）
+> 背景：29 号单（Loomy 长任务档案审读）+ 30 号单（交叉核查）暴露的问题，逐条落到代码与文档。老板 2026-11-14 拍板：**暂不发 0.6.0，等 C-1~C-6 全部改完再统一发**，因此本段改动全部并入 0.6.0，不单独出版本。
+
+1. **C-1（P0）代理侧白盒自动落盘**：代理进程此前从不创建 `WhiteboxLogger` 实例，导致「代理在跑、日志却永远是 0 行」。现于 `server.ts` 启动时按 `whiteboxLogDir` 建实例，`afterRequest` 收尾对每请求调 `recordProxyObserved()` 落盘（`scenario=proxy_observe` / `mode=proxy`）；代理观测单独进 `proxy` 统计桶，**不混进主统计**，`cf_report` 无 `cf_*` 调用也能读出逐轮数据。真实写盘验证：2 次转发 → 2 行 JSONL、hitRate 各 90、`stats.calls=0`、`proxy.calls=2`。
+2. **C-2（P1）`cf_ping` 探代理端口**：新增 `core/proxyProbe.ts`，回环探测 800ms 超时，返回结构化状态 `listening` / `refused` / `listening_other` / `timeout` / `error` / `skipped` 并附一句自愈提示；`cf_ping` 首行 `pong: dobocache ready` 保持不变（既有文档与用法都以它为判据），其后追加探测结论。三态实测通过。
+3. **C-3（P1）汇总与逐轮同源**：新增回归用例锁死「代理汇总 = 逐轮 hitRate 算术平均」「主统计不被污染」「无样本为 null 而非 0%」，杜绝 29 号单里「汇总写 2.5%~50.0%、逐轮表却全是 99%」的两套口径并存。
+4. **C-4（P1）触发时机与使用规程**：九个工具的 description 补「【何时调】」；`setup` 新增写规程一步——把「connected≠可用」「收尾才调 cf_report」「命中率为 null 是未判定」「别每轮调 cf_judge」「cf_warmup 会计费」写成带 `DOBOCACHE:BEGIN/END` 标记的块，幂等写入已有 `AGENTS.md` / `CLAUDE.md`（都不存在则建 `AGENTS.md`），块外内容一字不动，`--dry-run` 只预览不落盘。逻辑抽成无副作用模块 `src/rules.ts` 并有幂等用例。
+5. **C-5（P1）文档补「connected ≠ 可用」**：README §十一 开头点明唯一判据是 `cf_ping` 返回 `pong: dobocache ready`，并解释 `listening` / `refused` / `listening_other` / `timeout` 四态分别意味着什么。
+6. **C-6（P2）FAQ 口径**：README §十 新增第 10 条——客户端长任务空转、超长挂起、中断后重启属客户端与模型侧行为，本工具不接管会话调度；判定方法是 `cf_ping` 仍返回 pong 即服务端正常。
+
+> 发版物（tag / Release / npm publish / 置 Latest）仍 ONLY 推广线执行；`release/` 目录开发线未改动。FAQ 侧如需同步 C-5/C-6 两段文案，随统一发版一并并入。
+
 ### 文档
 7. `README.md` 首屏主线改为 `npx -y dobocache dobostitch setup`；「一条 `start` + 手填 baseURL」降为「手动方式（可选）」，配套 `status` / `health` 双自检。
 8. `package.json` / `server.json` 的 description 同步「一条命令自动接入」口径。

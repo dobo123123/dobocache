@@ -12,6 +12,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerCacheTools } from "./adapters/mcpTools.js";
 import { Meter } from "./core/meter.js";
+import { probeProxyPort, renderProxyProbe } from "./core/proxyProbe.js";
 import { WhiteboxLogger } from "./core/whitebox.js";
 import { checkNodeVersion } from "./utils/runtime.js";
 
@@ -93,9 +94,13 @@ async function startMcpServer(): Promise<void> {
   );
 
   // 健康检查
+  // v0.6.0（C-2）：从"回一行固定文本"升级为"回一行 pong + 代理端口状态"。
+  // 第一行 `pong: dobocache ready` 保持不变（文档与既有用法都以它为判据），
+  // 后面追加代理探测结果：代理没起 / 端口被别的程序占了 / 卡住不响应，
+  // 都给出结构化原因 + 一句自愈提示，而不是让用户面对"看起来一切正常但数据全零"。
   server.tool(
     "cf_ping",
-    "连通性自检：返回 pong: dobocache ready 表示服务已正常加载；若其他 cf_ 工具无响应，先调它排查。",
+    "连通性自检（最先调这个）：返回 pong: dobocache ready 表示 MCP 服务已正常加载；同时探测代理端口并给出结构化结论——proxy: listening 表示改写链路在跑，refused 表示代理没起（此时请求不会被改写），listening_other 表示端口被别的程序占用，timeout 表示代理卡住。用户说「没反应 / 没效果 / 不生效」时先调它定位。",
     {},
     {
       title: "连通性自检（cf_ping）",
@@ -104,7 +109,10 @@ async function startMcpServer(): Promise<void> {
       idempotentHint: true,
       openWorldHint: false,
     },
-    async () => ({ content: [{ type: "text", text: "pong: dobocache ready" }] }),
+    async () => {
+      const probe = await probeProxyPort();
+      return { content: [{ type: "text", text: `pong: dobocache ready\n\n${renderProxyProbe(probe)}` }] };
+    },
   );
 
   /**

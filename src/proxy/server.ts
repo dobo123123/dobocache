@@ -19,6 +19,7 @@ import { URL } from "node:url";
 import zlib from "node:zlib";
 
 import { buildHealthCard, renderHealthCard } from "./card.js";
+import { PROXY_SCENARIO, WhiteboxLogger } from "../core/whitebox.js";
 import { buildHandoff, saveHandoff } from "./handoff.js";
 import { injectStreamUsage, shouldRetryWithoutInjection } from "./inject.js";
 import type { InjectUsageResult } from "./inject.js";
@@ -516,6 +517,8 @@ interface ProxyContext {
   rewriteMode: RewriteMode;
   /** 是否给 OpenAI 方言的流式请求自动补 stream_options.include_usage */
   injectUsage: boolean;
+  /** v0.6.0（C-1）：代理侧白盒观测（逐请求落盘，与 cf_report 读盘目录同源） */
+  whitebox: WhiteboxLogger;
 }
 
 /** 请求结束后的记账：usage → 交接单 → 体检卡 */
@@ -562,6 +565,33 @@ function afterRequest(
     usageInject: params.usageInject ?? null,
   });
   ctx.onCard(renderHealthCard(card));
+
+  // v0.6.0（C-1）：代理侧白盒落盘。
+  // 背景：白盒本来只在 MCP 进程里创建，代理进程从不写日志，于是"代理跑满 5 小时、白盒零产物"。
+  // 这里每请求收尾落一条，即使一次 cf_* 都不调用，cf_report 也能从磁盘聚合到完整逐轮数据。
+  // 语义边界：代理是原样转发、不做注入改写，所以 rawTokens = optimizedTokens（saved = 0），
+  // 只记录厂商 usage 回传的真实命中率；拿不到 usage 就是 null=未判定，绝不写 0。
+  try {
+    const judged = usage.judged && typeof usage.hitRatio === "number";
+    const hitTokens = judged ? Math.max(0, Math.round(usage.cachedTokens)) : undefined;
+    const missTokens = judged ? Math.max(0, Math.round(usage.inputTokens - usage.cachedTokens)) : undefined;
+    const report = ctx.whitebox.buildReport({
+      requestId: `proxy-req-${params.index}`,
+      ts: Date.now(),
+      rawTokens: usage.inputTokens,
+      optimizedTokens: usage.inputTokens,
+      hitTokens,
+      missTokens,
+      changes: [],
+      note: "proxy 观测：请求原样转发（未做注入改写），仅记录厂商 usage",
+      scenario: PROXY_SCENARIO,
+      mode: "proxy",
+    });
+    ctx.whitebox.recordProxyObserved(report);
+  } catch (err) {
+    // 观测失败不影响代理主链路
+    console.error(`[dobostitch] 白盒观测记录失败：${(err as Error)?.message ?? err}`);
+  }
 }
 
 /** 处理单个 HTTP 请求 */
@@ -823,9 +853,19 @@ function listenWithDrift(server: http.Server, port: number, host: string): Promi
  * 启动代理。
  * 返回 { port, close }：port 可能与入参不同（端口被占时跳号）。
  */
-export async function startProxy(options: ProxyOptions = {}): Promise<{ port: number; close: () => Promise<void> }> {
+export async function startProxy(
+  options: ProxyOptions = {},
+): Promise<{ port: number; close: () => Promise<void>; whiteboxLogDir: string }> {
   const routes = resolveRoutes(options.routes);
   const host = options.host?.trim() || DEFAULT_HOST;
+  // v0.6.0（C-1）：代理进程自己持有一个白盒实例。
+  // 目录默认与 cf_report 读盘目录同源（utils/logDir.ts 的平台标准目录），
+  // 因此代理写的行能被 cf_report 的 source=disk 聚合到。
+  const whitebox = new WhiteboxLogger({
+    logDir: options.whiteboxLogDir,
+    fileWrite: options.whiteboxFileWrite ?? true,
+    cardMode: "quiet",
+  });
   const ctx: ProxyContext = {
     routes,
     options,
@@ -840,6 +880,7 @@ export async function startProxy(options: ProxyOptions = {}): Promise<{ port: nu
     rewriteMode: options.rewriteMode ?? "stabilize",
     // 流式 usage 默认注入：不开这个开关，流式请求基本拿不到 usage，命中率永远"未判定"
     injectUsage: options.injectUsage ?? true,
+    whitebox,
   };
 
   const server = http.createServer((req, res) => {
@@ -864,6 +905,8 @@ export async function startProxy(options: ProxyOptions = {}): Promise<{ port: nu
 
   return {
     port,
+    // v0.6.0（C-1）：暴露实际使用的白盒日志目录，供启动卡告知用户「观测数据落在哪里」
+    whiteboxLogDir: whitebox.report().logDir,
     close: () =>
       new Promise<void>((resolve, reject) => {
         // 长连接（尤其 SSE）会拖住 server.close()，先断存量连接再关闭，保证 Ctrl+C 立刻退出
