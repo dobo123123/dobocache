@@ -15,7 +15,8 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
-import { findTargets, makeContext, renderGenericSnippet, resolveAttachPort, type AttachResult } from "../attach.js";
+import { findTargets, makeContext, renderGenericSnippet, resolveAttachPort, TARGETS, type AttachResult } from "../attach.js";
+import { getHost, loadExternalHosts, renderGuide } from "../hosts/registry.js";
 import { disable as disableAutostart, enable as enableAutostart, statusTransport } from "../autostart.js";
 import { readLastPort, writeLastPort } from "../state.js";
 import { renderHealthCard } from "./card.js";
@@ -52,12 +53,19 @@ const USAGE = `dobostitch —— DoboCache 本地代理层
 
 全自动接入（不想手改配置就用这个）：
   dobostitch setup [--dry-run]                      一条命令装完，小白只需记这一条
-  dobostitch attach [--target auto|loomy|opencode|claude-code|generic] [--dry-run] [--revert] [--no-autostart]
+  dobostitch attach [--target auto|loomy|opencode|claude-code|generic|<底座id>] [--dry-run] [--revert] [--no-autostart] [--allow-unverified]
   dobostitch autostart [status|enable|disable]
 
   setup = attach（自动找客户端配置、备份、改 baseURL、写入自带拉起代理的 MCP 入口）+ 注册开机自启。
   之后换任何底座都不用再写脚本：MCP 入口会自己把代理拉起来。
   attach 的 --dry-run 只预览，--revert 原样退回；generic 只打印可粘贴片段，适合自研底座。
+  auto 只接入「已真机验证」的底座；新底座需 --allow-unverified 显式写入。
+
+看底座清单与逐家填法（v0.7.0）：
+  dobostitch providers [list]        列出全部底座（档位 / 起始版本 / 验证状态 / 是否已探测到）
+  dobostitch providers detect        只列本机真实装了的底座
+  dobostitch providers show <id>     单个底座的配置文件位置与手填片段
+  dobostitch providers plan <id>     预览会改哪几个文件（不写盘）
 `;
 
 /** 改写档位默认值 */
@@ -325,6 +333,103 @@ function printAttachResult(result: AttachResult): void {
   if (result.backup) console.log(`        · 备份：${result.backup}`);
 }
 
+/** providers：看底座清单 / 探测本机装了谁 / 单个底座怎么填（v0.7.0 新增） */
+function commandProviders(argv: string[]): void {
+  const action = argv[0] && !argv[0].startsWith("--") ? argv[0] : "list";
+  const rest = argv.slice(argv[0] && !argv[0].startsWith("--") ? 1 : 0);
+  const portText = argValue(argv, "port");
+  const parsedPort = portText ? Number(portText) : NaN;
+  const port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : readLastPort() ?? DEFAULT_PORT;
+  const ctx = makeContext(port, true);
+
+  if (action === "list") {
+    const warnings = loadExternalHosts().warnings;
+    for (const warning of warnings) console.error(`[dobostitch] 外部描述符：${warning}`);
+    console.log("[dobostitch] 底座清单（P0 自动写 / P1 谨慎写 / P2 只指路；未验证的底座需 --allow-unverified 才写）");
+    console.log("");
+    console.log("  档位  id               底座                  起始版本   验证        配置文件  状态");
+    for (const target of TARGETS) {
+      const files = target.locate();
+      const plan = (target.plan ?? "P0").padEnd(4);
+      const since = (target.since ?? "-").padEnd(9);
+      const confidence = (target.confidence ?? "verified").padEnd(11);
+      const state = files.length === 0 ? "未安装/未找到" : `${files.length} 个`;
+      console.log(`  ${plan}  ${target.id.padEnd(16)} ${padLabel(target.label).padEnd(20)} ${since} ${confidence} ${state}`);
+    }
+    console.log("");
+    console.log("  看单个底座怎么填：dobostitch providers show <id>");
+    console.log("  预览会改哪些文件：dobostitch providers plan <id>");
+    return;
+  }
+
+  if (action === "detect") {
+    const found = TARGETS.map((target) => ({ target, files: target.locate() })).filter((row) => row.files.length > 0);
+    if (found.length === 0) {
+      console.log("[dobostitch] 本机没探测到任何已知底座的配置文件。");
+      console.log(`            通用接入方式见：dobostitch attach --target generic`);
+      return;
+    }
+    console.log(`[dobostitch] 探测到 ${found.length} 个底座：`);
+    for (const row of found) {
+      const hint = (row.target.plan ?? "P0") === "P2" ? "只指路" : (row.target.confidence ?? "verified") === "verified" ? "可自动接入" : "需 --allow-unverified";
+      console.log(`  · ${row.target.id}（${row.target.label}）${hint}`);
+      for (const file of row.files) console.log(`      ${file}`);
+    }
+    return;
+  }
+
+  const id = rest[0] ?? "";
+  const target = TARGETS.find((item) => item.id === id);
+  if (!id || !target) {
+    console.error(`[dobostitch] 不认识的底座：${id || "（空）"}；先跑 dobostitch providers list 看清单`);
+    process.exitCode = 1;
+    return;
+  }
+  const host = getHost(target.id);
+
+  if (action === "show") {
+    console.log(`[dobostitch] ${target.label}（${target.id}）`);
+    console.log(`  档位：${target.plan ?? "P0"}    起始版本：${target.since ?? "-"}    验证：${target.confidence ?? "verified"}`);
+    if (host?.source) console.log(`  依据：${host.source}`);
+    const files = target.locate();
+    console.log(`  配置文件：${files.length === 0 ? "未找到（装好该底座后重试）" : ""}`);
+    for (const file of files) console.log(`    ${file}`);
+    if (host) {
+      console.log("");
+      for (const line of renderGuide(host, ctx)) console.log(line);
+    } else {
+      // 老三家走接入层私有实现，不在描述符注册表里：直接给出可执行动作
+      console.log("");
+      console.log("该底座为自动写入（改前自动备份，--revert 复原接入前原值）：");
+      console.log(`  直接接入：dobostitch attach --target ${target.id}`);
+      console.log(`  预览不写：dobostitch attach --target ${target.id} --dry-run --allow-unverified`);
+    }
+    return;
+  }
+
+  if (action === "plan") {
+    const files = target.locate();
+    if (files.length === 0) {
+      console.log(`[dobostitch] 没找到 ${target.label} 的配置文件，先装/先跑一次该底座再来。`);
+      if (host) for (const line of renderGuide(host, ctx)) console.log(line);
+      return;
+    }
+    console.log(`[dobostitch] ${target.label} 接入预览（不写盘）：`);
+    for (const file of files) printAttachResult(target.sync(file, ctx));
+    return;
+  }
+
+  console.error(`[dobostitch] providers 不认识的动作：${action}（可选 list / detect / show / plan）`);
+  process.exitCode = 1;
+}
+
+function padLabel(label: string): string {
+  // 中文按两个字符宽估算，避免表头错位
+  let width = 0;
+  for (const char of label) width += /[\u4e00-\u9fa5]/.test(char) ? 2 : 1;
+  return label + " ".repeat(Math.max(0, 18 - width));
+}
+
 /** attach：自动找配置、备份、改 baseURL、写 MCP 入口 */
 async function commandAttach(argv: string[]): Promise<void> {
   const portText = argValue(argv, "port");
@@ -332,10 +437,18 @@ async function commandAttach(argv: string[]): Promise<void> {
   const explicitPort = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : null;
   const dryRun = argv.includes("--dry-run");
   const revert = argv.includes("--revert");
+  const allowUnverified = argv.includes("--allow-unverified");
+  // `attach --target` 不给值 = 想看有哪些底座
+  if (argv.includes("--target") && argValue(argv, "target") === undefined) {
+    commandProviders(["list"]);
+    return;
+  }
   const targetId = argValue(argv, "target") ?? "auto";
-  const targets = findTargets(targetId);
+  const targets = findTargets(targetId, { allowUnverified });
   if (targets.length === 0) {
-    console.error(`[dobostitch] 不认识的底座：${targetId}（可选 auto / loomy / opencode / claude-code / generic）`);
+    const known = TARGETS.map((target) => target.id).join(" / ");
+    console.error(`[dobostitch] 不认识的底座：${targetId}（可选 auto / generic / ${known}）`);
+    console.error(`            若该底座尚未真机验证，加 --allow-unverified 显式写入。`);
     process.exitCode = 1;
     return;
   }
@@ -546,6 +659,9 @@ async function main(): Promise<void> {
       return;
     case "attach":
       await commandAttach(rest);
+      return;
+    case "providers":
+      commandProviders(rest);
       return;
     case "setup":
       await commandSetup(rest);

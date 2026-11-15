@@ -24,6 +24,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { DEFAULT_PORT } from "./proxy/server.js";
+import { applyHostFile, locateHostFiles, revertHostFile } from "./hosts/engine.js";
+import { listHosts } from "./hosts/registry.js";
 
 export type Status = "applied" | "dry-run" | "skipped" | "error";
 
@@ -150,6 +152,12 @@ function publicDir(): string {
 export interface TargetDescriptor {
   id: string;
   label: string;
+  /** 档位（P0 自动写 / P1 谨慎写 / P2 只指路）—— v0.7.0 起由注册表带过来，老三家视为 P0 */
+  plan?: "P0" | "P1" | "P2";
+  /** 真机验证状态：verified 才允许 setup 自动接入 */
+  confidence?: "verified" | "unverified";
+  /** 从哪个版本开始支持 */
+  since?: string;
   /** 候选配置文件（返回已存在的绝对路径） */
   locate(): string[];
   /** 把配置改到接入状态 */
@@ -412,11 +420,49 @@ function revertJsonTarget(
   return { target: opts.target, label: opts.label, configPath: file, status: "applied", changes };
 }
 
-export const TARGETS: TargetDescriptor[] = [loomyTarget, opencodeTarget, claudeCodeTarget];
+/**
+ * v0.7.0 起 TARGETS 由「老三家（手写实现） + 描述符注册表」组合而成。
+ * 老三家保持原实现不动（回归零风险），新底座全部走描述符 + 通用引擎。
+ */
+const LEGACY_TARGETS: TargetDescriptor[] = [
+  { ...loomyTarget, plan: "P0", confidence: "verified", since: "0.5.3" },
+  { ...opencodeTarget, plan: "P0", confidence: "verified", since: "0.5.3" },
+  { ...claudeCodeTarget, plan: "P0", confidence: "verified", since: "0.5.3" },
+];
 
-export function findTargets(id?: string): TargetDescriptor[] {
-  if (!id || id === "auto") return TARGETS;
-  return TARGETS.filter((target) => target.id === id);
+/** 把描述符包成老接口，CLI 与 setup 侧无需感知两套实现 */
+function hostTargets(): TargetDescriptor[] {
+  return listHosts()
+    .filter((host) => host.platforms.includes(process.platform as "win32" | "darwin" | "linux"))
+    .map((host) => ({
+      id: host.id,
+      label: host.label,
+      plan: host.plan,
+      confidence: host.confidence,
+      since: host.since,
+      locate: () => locateHostFiles(host),
+      sync: (file: string, ctx: AttachContext) => applyHostFile(host, file, ctx),
+      revert: (file: string, ctx: AttachContext) => revertHostFile(host, file, ctx),
+    }));
+}
+
+export const TARGETS: TargetDescriptor[] = [...LEGACY_TARGETS, ...hostTargets()];
+
+/**
+ * 找一个/一组底座。
+ * @param id  "auto" 或不传 = 全部自动可接的；否则按 id 精确匹配
+ * @param opts.allowUnverified 显式指定底座时允许写入未真机验证的底座（需用户自己加参数）
+ */
+export function findTargets(id?: string, opts: { allowUnverified?: boolean } = {}): TargetDescriptor[] {
+  if (!id || id === "auto") {
+    // 自动接入只碰「已验证 + 有写盘规则」的底座，未验证的绝不偷偷写
+    return TARGETS.filter((target) => (target.confidence ?? "verified") === "verified" && target.plan !== "P2");
+  }
+  const matched = TARGETS.filter((target) => target.id === id);
+  if (!opts.allowUnverified) {
+    return matched.filter((target) => (target.confidence ?? "verified") === "verified");
+  }
+  return matched;
 }
 
 export function makeContext(port: number, dryRun: boolean): AttachContext {
