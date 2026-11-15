@@ -60,6 +60,8 @@ Proxy shape (Option D), one ~14k-token system prompt plus 12 tool definitions, b
 
 Three boundaries, in plain words: these numbers hold **only** for the same vendor, the same prompt, the 2nd request; "98.85 percentage points better" is not "98.85% better hit rate"; and when the prompt is already stable it adds nothing — **and makes nothing worse**. No money is converted anywhere; raw data and re-run scripts ship with the package.
 
+**Plus one long-task observation, and it is single-arm**: the same local-proxy shape, mounted on a desktop long-task client, ran **11 h 10 min / 327 turns** continuously (a game-engineering delivery, one model throughout): cumulative cache hit **98.28%** — 131,402,048 tokens served from cache against only 2,301,725 tokens of new input, per-turn median 99.82%. **8 turns dropped below 10%** (lowest 0.53%, all of them right after a step increase in input); they are listed as-is and nothing was trimmed. This is **single-arm with no control**: it says what one run looked like with it mounted, not how much mounting gains, and it does not extrapolate to other clients or other tasks — the sample size is 1. All 327 rows ship with the package: [long-task archive](https://github.com/dobo123123/dobocache/blob/main/release/testdata/longtask-g2-20261115/README.md)
+
 ### Three things to know before installing
 
 1. **Free, open source, no paid tier** — Apache-2.0, no subscription, no commercial licence gate;
@@ -312,7 +314,9 @@ The numbers come from 8 controlled groups, 20 consecutive requests per formal gr
 
 First, the boundary: **the individual requests here are all small** — every round feeds the same AI-news-roundup topic, prefixes run from a few hundred to a few thousand tokens, and both the task texts and the per-request usage ship in `testdata/`, so anyone can redo the arithmetic.
 
-**We did not test genuinely long tasks**: single requests in the tens of thousands of tokens, whole-codebase analysis, sessions dozens of turns deep — none of that is in the sample. Whether static prefix reuse holds at that scale is untested here, and we will not claim either way.
+**Genuinely long tasks: observed exactly once, sample size 1, no conclusion drawn.** 2026-11-14 17:26 → 11-15 04:37, the local-proxy shape mounted on a desktop long-task client, one continuous run of 11 h 10 min / 327 turns (one model throughout): cumulative cache hit 98.28%, per-turn median 99.82%, 8 turns below 10% (lowest 0.53%), 3 turns marked "undetermined" because the vendor returned no usage (they are not counted as 0%). Per-turn rows, the counting convention and the recompute snippet live in [`release/testdata/longtask-g2-20261115/`](https://github.com/dobo123123/dobocache/tree/main/release/testdata/longtask-g2-20261115), so you can redo the arithmetic yourself.
+
+Everything outside that single case is **still untested**: requests in the tens of thousands of tokens, whole-codebase analysis, cross-client comparison — none of that is in the sample, and we will not claim either way.
 
 If you happen to have work like that, mount it, run it, and tell us what you see — recorded per-request usage beats any promise we could make. That is exactly why the per-request data, the task texts and the replay steps all ship in the package: **so you can check us instead of trusting us.**
 
@@ -661,6 +665,8 @@ No promise is made about: a specific hit rate, a specific saving ratio or amount
 
 Changing the client, upgrading the package, or editing the system prompt or tool list invalidates the previously established cache prefix; re-observe per section 9. **Log files produced by older versions are not rewritten or deleted automatically** — clean them up yourself.
 
+**11. Long tasks have been observed once, and single-arm**
+That one run is 11 h 10 min / 327 turns / 98.28% cumulative, on one client, one model, one task, with no control arm and no second run to repeat it. It does **not** mean "long tasks all reach 98%", and it cannot answer "how much does mounting gain". If you cite it, cite the 8 sub-10% turns with it.
 ## 11. FAQ
 
 Does `hitRate=null` mean it is broken? Why no hit on the first request? Where is the log and how do I read it? Do I need to clean logs when moving machines? See [`FAQ-使用须知.md`](FAQ-使用须知.md) (Chinese).
