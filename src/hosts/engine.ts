@@ -135,6 +135,8 @@ function applyJson(descriptor: HostDescriptor, file: string, spec: JsonWriteSpec
   const json = read.data;
   const changes: string[] = [];
   let baseURLBefore = "";
+  /** 本次写入新建的父级键（回滚时一并摘掉空壳） */
+  const createdParents: string[] = [];
 
   if (spec.baseURLPath && spec.baseURLPath.length > 0) {
     const parent = ensureIn(json, spec.baseURLPath.slice(0, -1));
@@ -149,6 +151,12 @@ function applyJson(descriptor: HostDescriptor, file: string, spec: JsonWriteSpec
   }
 
   if (spec.mcpKeyPath && spec.mcpKeyPath.length > 0) {
+    // 记录哪几层父级键是本次新建的：回滚时要把这些空壳一并摘掉，否则会留下 "mcpServers": {}
+    let probe: Dict = json;
+    for (const key of spec.mcpKeyPath) {
+      if (!isDict(probe[key])) createdParents.push(key);
+      probe = asDict(probe[key]);
+    }
     const servers = ensureIn(json, spec.mcpKeyPath);
     const want = buildMcpEntry(spec.entryShape, ctx);
     const cur = servers.dobocache;
@@ -170,6 +178,7 @@ function applyJson(descriptor: HostDescriptor, file: string, spec: JsonWriteSpec
     savedAt: new Date().toISOString(),
     changes,
     ...(baseURLBefore ? { baseURLBefore } : {}),
+    ...(createdParents.length > 0 ? { createdParents } : {}),
   });
   return { ...base, status: "applied", changes, backup };
 }
@@ -189,6 +198,16 @@ function revertJson(descriptor: HostDescriptor, file: string, spec: JsonWriteSpe
     if (isDict(servers.dobocache)) {
       delete servers.dobocache;
       changes.push(`已移除 ${spec.mcpKeyPath.join(".")}.dobocache`);
+      // 接入时新建的父级键，若已空掉就一并摘掉，保证回滚后文件与接入前一致
+      const created = Array.isArray(sidecar.createdParents) ? (sidecar.createdParents as string[]) : [];
+      for (const key of [...created].reverse()) {
+        const parent = spec.mcpKeyPath.slice(0, spec.mcpKeyPath.indexOf(key)).reduce<Dict>((acc, k) => asDict(acc[k]), json);
+        const node = parent[key];
+        if (isDict(node) && Object.keys(node).length === 0) {
+          delete parent[key];
+          changes.push(`已清掉接入时新建的空 ${key} 段`);
+        }
+      }
     }
   }
 

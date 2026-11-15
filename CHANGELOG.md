@@ -1,5 +1,28 @@
 # DoboCache Changelog
 
+## v0.7.1（2026-11-15）— P0 档补齐：YAML 嵌套块 + 三家 CLI + 一家只指路
+
+> 内核零改动，仍只动接入层。0.7.0 用两家底座验证了「描述符 + 通用引擎」这条路，本版把 P0 清单里剩下的命令行底座补进来，同时打掉 0.7.0 埋下的两个隐患：**锚点下的受管块第二次写入会掉缩进**（YAML 会把嵌套键提到顶层，直接错层），以及**回滚会留下空的父级键**（`"mcpServers": {}`）。
+
+### 代码
+1. **修受管块幂等 bug**：`findBlock` 改为从块内第一行内容推断真实缩进（原来取标记行缩进，而标记行写在顶格）。不修的话，锚点下的块第二次写入会被"提"到顶层——YAML 配置直接错层，只说"已是接入状态"是查不出来的。
+2. **修 JSON 回滚残留**：接入时新建的父级键记进 sidecar（`createdParents`），回滚删掉 MCP 条目后把这些空壳一并摘掉，保证回滚后文件与接入前逐字节一致。
+3. **新增四家底座**（单版 ≤ 4 家上限内的最后一批 P0/P1）：
+   - `goose`（P0）：YAML `config.yaml` 的 `extensions` 下写 `dobocache` 嵌套块（`type: stdio` / `cmd` / `args` / `envs` / `timeout`）；**没有 `extensions` 锚点就拒绝写入**，不猜层级。Windows 走 `%APPDATA%\Block\goose\config\config.yaml`，macOS/Linux 走 `~/.config/goose/config.yaml`。
+   - `kimi-cli`（P0）：`~/.kimi/mcp.json` 的 `mcpServers.dobocache`（OpenAI 兼容 `command` / `args` 形态）。
+   - `gemini-cli`（P1）：`~/.gemini/settings.json` 的 `mcpServers.dobocache`。**只写 MCP 条目**：自定义 endpoint 的字段写法没有官方文档支撑，不代写。
+   - `crush`（P1，**只指路不写盘**）：官方配置已转成可执行风格的 `crushrc`，旧 `crush.json` 标为 deprecated。写 shell 风格的配置一旦出错会让客户端起不来，故只给一行 `mcp add dobocache --command <node> --args <bundle>` 让用户自己粘。
+4. **`providers` 清单同步**：现在列出 9 家（老三家 verified + 六家 unverified），`providers show <id>` 对只指路底座直接打印可复制命令。
+
+### 测试
+- `test/hosts.test.ts` 新增 4 例：Goose 锚点嵌套块写入 → 幂等 → 回滚逐字节一致、Goose 缺锚点拒绝写入、Kimi/Gemini 的 JSON 往返（含父级空壳清理）、Crush 只指路且文案带可复制命令。
+- 全量 **113 例通过**，`tsc --noEmit` 无错。修缩进 bug 后，锚点场景的"第二次写入"才真正幂等——这是本版最重要的回归点。
+
+### 明确不承诺
+- 四家全是 `unverified`：配置写法逐条对着官方文档核过（Goose 官方 config-files、Kimi 官方 MCP 文档、Crush 官方 README），**均未在真机装该客户端跑通全链路**，故不参与自动接入，需显式 `--allow-unverified`。
+- 不宣称"支持 N 家"：只写清每家在哪个档位、写不写盘、写哪个键。
+- 编辑器档（VS Code / Cursor / Cline 等）仍不在本版，见 v0.7.2。
+
 ## v0.7.0（2026-11-15）— 底座从「写死三家」变成「描述符注册表」
 
 > 内核零改动，本版只动接入层。0.6.x 的问题很具体：适配的底座是**写死在代码里的三家**，用户换成别的 AI 客户端就只能自己手改配置；而手改又最容易踩三件事——改错层级、把注释写丢、想退回去时原值没了。本版把「一家一个硬编码函数」换成**描述符 + 通用写入引擎**，并先只放两家新底座进来验证这条路走得通。

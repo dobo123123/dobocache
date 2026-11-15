@@ -189,6 +189,71 @@ describe("受管块引擎（TOML / YAML 底座）", () => {
   });
 });
 
+// ---------------------------------------------------------------- v0.7.1
+
+describe("v0.7.1 新底座", () => {
+  it("Goose：写 extensions 下的 YAML 块 → 幂等 → 回滚", () => {
+    const host = getHost("goose");
+    expect(host).toBeTruthy();
+    const dir = scratch();
+    const file = path.join(dir, "config.yaml");
+    const original = ["GOOSE_PROVIDER: openai", "extensions:", "  developer:", "    enabled: true", ""].join("\n");
+    fs.writeFileSync(file, original, "utf-8");
+
+    const applied = applyHostFile(host as HostDescriptor, file, CTX);
+    expect(applied.status).toBe("applied");
+    const text = fs.readFileSync(file, "utf-8");
+    expect(text).toContain("  dobocache:");
+    expect(text).toContain("  type: stdio");
+    expect(text).toContain("    - " + CTX.bundlePath);
+    // 原有扩展不许被动
+    expect(text).toContain("  developer:");
+    expect(text).toContain("    enabled: true");
+
+    expect(applyHostFile(host as HostDescriptor, file, CTX).status).toBe("skipped");
+    expect(revertHostFile(host as HostDescriptor, file, CTX).status).toBe("applied");
+    expect(fs.readFileSync(file, "utf-8")).toBe(original);
+  });
+
+  it("Goose：没有 extensions 锚点时宁可不写", () => {
+    const host = getHost("goose") as HostDescriptor;
+    const dir = scratch();
+    const file = path.join(dir, "config.yaml");
+    const original = "GOOSE_PROVIDER: openai\n";
+    fs.writeFileSync(file, original, "utf-8");
+    const applied = applyHostFile(host, file, CTX);
+    expect(applied.status).toBe("skipped");
+    expect(fs.readFileSync(file, "utf-8")).toBe(original);
+  });
+
+  it("Kimi CLI / Gemini CLI：写 JSON 的 mcpServers → 幂等 → 回滚", () => {
+    for (const id of ["kimi-cli", "gemini-cli"]) {
+      const host = getHost(id) as HostDescriptor;
+      expect(host, id).toBeTruthy();
+      const dir = scratch();
+      const file = path.join(dir, "settings.json");
+      const original = '{\n  "theme": "dark"\n}\n';
+      fs.writeFileSync(file, original, "utf-8");
+
+      expect(applyHostFile(host, file, CTX).status, id).toBe("applied");
+      const parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as Record<string, unknown>;
+      expect(Object.keys(parsed)).toContain("mcpServers");
+      expect(JSON.stringify(parsed)).toContain(CTX.bundlePath.replace(/\\/g, "\\\\"));
+      expect((parsed as { theme?: string }).theme).toBe("dark");
+
+      expect(applyHostFile(host, file, CTX).status, id).toBe("skipped");
+      expect(revertHostFile(host, file, CTX).status, id).toBe("applied");
+      expect(fs.readFileSync(file, "utf-8"), id).toBe(original);
+    }
+  });
+
+  it("Crush：只指路不写盘，且指路文案带可复制的 mcp add 命令", () => {
+    const host = getHost("crush") as HostDescriptor;
+    expect(host.write).toBeNull();
+    expect((host.guide ?? []).join("\n")).toContain("mcp add dobocache");
+  });
+});
+
 describe("注册表 registry", () => {
   it("内置描述符含 v0.7.0 新增底座，且都带来源说明", () => {
     const ids = listHosts().map((host) => host.id);

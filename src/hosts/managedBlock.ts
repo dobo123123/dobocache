@@ -53,11 +53,26 @@ export function findBlock(lines: string[]): BlockRange | null {
     const match = BEGIN_RE.exec(lines[i] ?? "");
     if (!match) continue;
     for (let j = i + 1; j < lines.length; j++) {
-      if (END_RE.test(lines[j] ?? "")) return { start: i, end: j, indent: match[1] ?? "" };
+      if (END_RE.test(lines[j] ?? "")) {
+        return { start: i, end: j, indent: contentIndent(lines, i, j, match[1] ?? "") };
+      }
     }
     return null; // 只有 begin 没有 end：视为脏文件，不再动它
   }
   return null;
+}
+
+/**
+ * 块内实际缩进：标记行通常写在顶格，真正体现层级的是块内第一行内容。
+ * 整段替换时必须沿用它，否则锚点下的块会被"提"到顶层，YAML 直接错层。
+ */
+function contentIndent(lines: string[], begin: number, end: number, fallback: string): string {
+  for (let i = begin + 1; i < end; i++) {
+    const line = lines[i] ?? "";
+    if (line.trim() === "") continue;
+    return /^\s*/.exec(line)?.[0] ?? fallback;
+  }
+  return fallback;
 }
 
 export function hasBlock(text: string): boolean {
