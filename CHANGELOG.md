@@ -1,5 +1,25 @@
 # DoboCache Changelog
+## v0.7.2（2026-11-15）— 编辑器档：Cline / Continue / Cursor / Windsurf
 
+### 代码
+1. **新增四家编辑器档底座**（单版 ≤ 4 家）：
+   - `cline`（P1）：写全局 `cline_mcp_settings.json` 的 `mcpServers.dobocache`。Cline 新版把全局配置挪到 `~/.cline/data/settings/`，老版在 VS Code 的 `globalStorage/saoudrizwan.claude-dev/settings/`，两处都登记、只写真正存在的那个文件，不凭空造配置。
+   - `continue`（P1）：`~/.continue/config.yaml` 的 `mcpServers` —— 注意这是**列表**形态（`- name: ...`），不是映射。用受管块写一个列表项，并新增 `conflictRegex` 冲突检测（`^\s*-\s*name:\s*dobocache$`）：用户自己已配过同名项就停手，不改成两条。
+   - `cursor`（P1）：`~/.cursor/mcp.json` 的 `mcpServers`。Cursor 自家补全/Agent 请求不能改到自定义端点，故**只挂 MCP、不写 baseURL**；卡片里指路"需要在 Cursor 里手填 OpenAI 兼容自定义模型"才会产生缓存字段。
+   - `windsurf`（P1）：`~/.codeium/windsurf/mcp_config.json` 的 `mcpServers`，同样只挂 MCP、不写端点。
+2. **写入引擎加 `conflictRegex`**：`ManagedBlockWriteSpec` 与 `upsertBlock` / `applyBlock` 透传一个正则，用于"列表项同名"这种映射查不出、只能靠文本匹配的冲突。拒绝写入时保持原文件逐字节不变。
+3. **回滚改为按备份原文还原**：`applyJson` 把本次备份路径记进 sidecar；回滚后若当前 JSON 与接入前备份**语义相同**，直接写回备份原文，而不是重新 `JSON.stringify`。原因：重排会把用户原来的单行对象、缩进风格洗掉，`--revert` 就不算真回到接入前了。
+4. **修备份同名覆盖**：备份名时间戳精度从秒提到毫秒并加序号，避免"接入后立刻回滚"落在同一秒把接入前的备份覆盖掉（会直接导致上面那条还原失效）。
+
+### 测试
+- `test/hosts.test.ts` 新增 3 例：Continue 列表形态写入 → 幂等 → 回滚逐字节一致；Continue 同名项存在时拒绝写入；cline / cursor / windsurf 三家 JSON 往返（写入、幂等、回滚逐字节一致）。
+- 全量 **116 例通过**，`tsc --noEmit` 无错。
+
+### 明确不承诺
+- 四家全是 `unverified`：配置路径与写法逐条对着各家官方文档核过，**均未在真机装该客户端跑通全链路**，需显式 `--allow-unverified` 才写盘。
+- Continue 的 MCP 只在 Agent 模式生效（Chat 模式看不到工具），这点写进卡片提示，不当作缺陷。
+- Cursor / Windsurf 的模型端点不可改，本工具不代写、也不宣称"接上就有缓存收益"。
+- 桌面 GUI 档（P2）仍只看不写。
 ## v0.7.1（2026-11-15）— P0 档补齐：YAML 嵌套块 + 三家 CLI + 一家只指路
 
 > 内核零改动，仍只动接入层。0.7.0 用两家底座验证了「描述符 + 通用引擎」这条路，本版把 P0 清单里剩下的命令行底座补进来，同时打掉 0.7.0 埋下的两个隐患：**锚点下的受管块第二次写入会掉缩进**（YAML 会把嵌套键提到顶层，直接错层），以及**回滚会留下空的父级键**（`"mcpServers": {}`）。

@@ -98,7 +98,7 @@ function indentContent(content: string, baseIndent: string): string[] {
 export function upsertBlock(
   text: string,
   content: string,
-  opts: { anchor?: string; appendIfMissing?: boolean; conflictKey?: string; syntax?: "toml" | "yaml" } = {},
+  opts: { anchor?: string; appendIfMissing?: boolean; conflictKey?: string; conflictRegex?: string; syntax?: "toml" | "yaml" } = {},
 ): UpsertResult {
   const eol = detectEol(text);
   const lines = splitLines(text);
@@ -131,6 +131,12 @@ export function upsertBlock(
     conflicts.push({
       re: new RegExp(`^(\\s*)${escapeRe(conflictKey)}\\s*:`),
       reason: `文件里已存在 ${conflictKey}: 键，已停止写入以免覆盖你的配置`,
+    });
+  }
+  if (opts.conflictRegex) {
+    conflicts.push({
+      re: new RegExp(opts.conflictRegex),
+      reason: `文件里已存在 ${conflictKey} 的同名条目（列表形态），已停止写入以免重复`,
     });
   }
   for (const line of lines) {

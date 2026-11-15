@@ -252,6 +252,62 @@ describe("v0.7.1 新底座", () => {
     expect(host.write).toBeNull();
     expect((host.guide ?? []).join("\n")).toContain("mcp add dobocache");
   });
+
+  it("Continue：mcpServers 是列表形态，写入为列表项、幂等、可回滚", () => {
+    const host = getHost("continue") as HostDescriptor;
+    const dir = scratch();
+    const file = path.join(dir, "config.yaml");
+    const original = "name: my-config\nversion: 0.0.1\nschema: v1\nmcpServers:\n  - name: existing\n    command: npx\n";
+    fs.writeFileSync(file, original, "utf-8");
+
+    const first = applyHostFile(host, file, CTX);
+    expect(first.status).toBe("applied");
+    const after = fs.readFileSync(file, "utf-8");
+    expect(after).toContain("  - name: dobocache");
+    expect(after).toContain("mcpServers:");
+    expect(after.indexOf("- name: dobocache")).toBeGreaterThan(after.indexOf("mcpServers:"));
+    expect(after).toContain("- name: existing");
+
+    // 第二次写入必须幂等：YAML 是缩进敏感格式，掉缩进会把列表项提到顶层
+    expect(applyHostFile(host, file, CTX).status).toBe("skipped");
+    expect(fs.readFileSync(file, "utf-8")).toBe(after);
+
+    expect(revertHostFile(host, file, CTX).status).toBe("applied");
+    expect(fs.readFileSync(file, "utf-8")).toBe(original);
+  });
+
+  it("Continue：用户自己已配了同名 dobocache 列表项时拒绝写入", () => {
+    const host = getHost("continue") as HostDescriptor;
+    const dir = scratch();
+    const file = path.join(dir, "config.yaml");
+    const original = "mcpServers:\n  - name: dobocache\n    command: /my/own/node\n";
+    fs.writeFileSync(file, original, "utf-8");
+    const result = applyHostFile(host, file, CTX);
+    expect(result.status).toBe("skipped");
+    expect(result.detail ?? "").toContain("已停止写入");
+    expect(fs.readFileSync(file, "utf-8")).toBe(original);
+  });
+
+  it("编辑器档 JSON 底座（cline / cursor / windsurf）：写入-幂等-回滚逐字节一致", () => {
+    for (const id of ["cline", "cursor", "windsurf"]) {
+      const host = getHost(id) as HostDescriptor;
+      const dir = scratch();
+      const file = path.join(dir, "mcp.json");
+      const original = '{\n  "mcpServers": {\n    "mine": { "command": "node" }\n  }\n}\n';
+      fs.writeFileSync(file, original, "utf-8");
+
+      expect(applyHostFile(host, file, CTX).status, id).toBe("applied");
+      const parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as {
+        mcpServers: Record<string, { command?: string; args?: string[] }>;
+      };
+      expect(parsed.mcpServers.dobocache?.command, id).toBe(CTX.nodeExe);
+      expect(parsed.mcpServers.mine?.command, id).toBe("node");
+
+      expect(applyHostFile(host, file, CTX).status, id).toBe("skipped");
+      expect(revertHostFile(host, file, CTX).status, id).toBe("applied");
+      expect(fs.readFileSync(file, "utf-8"), id).toBe(original);
+    }
+  });
 });
 
 describe("注册表 registry", () => {

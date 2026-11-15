@@ -177,6 +177,7 @@ function applyJson(descriptor: HostDescriptor, file: string, spec: JsonWriteSpec
     configPath: file,
     savedAt: new Date().toISOString(),
     changes,
+    backup,
     ...(baseURLBefore ? { baseURLBefore } : {}),
     ...(createdParents.length > 0 ? { createdParents } : {}),
   });
@@ -232,9 +233,37 @@ function revertJson(descriptor: HostDescriptor, file: string, spec: JsonWriteSpe
   if (ctx.dryRun) return { ...base, status: "dry-run", changes };
 
   backupFile(file);
-  writeTextAtomic(file, `${JSON.stringify(json, null, 2)}\n`);
+  // 回滚后如果内容与接入前备份在语义上一致，就直接还原备份原文，
+  // 避免 JSON 重新序列化把用户原来的缩进/单行对象排版洗掉（回滚就要真的回到接入前）
+  const restored = restoreFromBackupIfSame(file, json);
+  if (restored) {
+    changes.push("已按接入前备份原文还原（排版与接入前一致）");
+  } else {
+    writeTextAtomic(file, `${JSON.stringify(json, null, 2)}\n`);
+  }
   removeSidecar(file);
   return { ...base, status: "applied", changes };
+}
+
+/** 若当前 JSON 与接入前备份语义相同，则用备份原文覆盖（拿到逐字节一致的回滚） */
+function restoreFromBackupIfSame(file: string, current: Dict): boolean {
+  const sidecar = readSidecar(file);
+  const backup = typeof sidecar?.backup === "string" ? sidecar.backup : "";
+  if (!backup || !fs.existsSync(backup)) return false;
+  let raw = "";
+  try {
+    raw = fs.readFileSync(backup, "utf-8");
+  } catch {
+    return false;
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw.replace(/^\uFEFF/, ""));
+if (stable(parsed) !== stable(current)) return false;
+    writeTextAtomic(file, raw);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function applyBlock(descriptor: HostDescriptor, file: string, spec: ManagedBlockWriteSpec, ctx: HostContext): HostResult {
@@ -245,6 +274,7 @@ function applyBlock(descriptor: HostDescriptor, file: string, spec: ManagedBlock
     anchor: spec.anchor,
     appendIfMissing: spec.appendIfMissing ?? false,
     conflictKey: spec.conflictKey ?? "dobocache",
+    conflictRegex: spec.conflictRegex,
     syntax: spec.syntax,
   });
   if (result.action === "refused") return { ...base, status: "skipped", changes: [], detail: result.reason };

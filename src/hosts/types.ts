@@ -58,6 +58,8 @@ export interface ManagedBlockWriteSpec {
   appendIfMissing?: boolean;
   /** 禁止重复的键名（默认 dobocache）；文件里已存在同名键时拒绝写入 */
   conflictKey?: string;
+  /** 额外的冲突检测正则（形如列表项 `- name: dobocache` 这类非键值写法的底座用） */
+  conflictRegex?: string;
   /** 生成受管块内容（不含 markers），ctx 提供 bundle / 端口等变量 */
   render(ctx: BlockRenderContext): string;
 }

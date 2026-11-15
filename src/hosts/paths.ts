@@ -91,10 +91,14 @@ export function removeSidecar(file: string): void {
   fs.rmSync(`${file}${SIDECAR_SUFFIX}`, { force: true });
 }
 
-/** 备份：文件名带时间戳 + 原因，便于用户自己找回 */
+/** 备份：文件名带时间戳（到毫秒）+ 原因，便于用户自己找回；绝不覆盖已有备份 */
 export function backupFile(file: string): string {
-  const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
-  const target = `${file}.bak_${stamp}_before-dobocache`;
+  const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 17);
+  let target = `${file}.bak_${stamp}_before-dobocache`;
+  // 同一毫秒内可能连做两次（接入后马上回滚），加序号避免把上一次的备份覆盖掉
+  for (let i = 2; fs.existsSync(target); i += 1) {
+    target = `${file}.bak_${stamp}-${i}_before-dobocache`;
+  }
   fs.copyFileSync(file, target);
   return target;
 }
