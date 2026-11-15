@@ -76,7 +76,7 @@ async function startMcpServer(): Promise<void> {
   const server = new McpServer(
     {
       name: "dobocache",
-      version: "0.6.0",
+      version: "0.6.1",
     },
     {
       // v0.4.4 r3：服务级说明（MCP 规范 initialize.instructions）。
