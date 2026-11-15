@@ -16,7 +16,10 @@ import net from "node:net";
 import path from "node:path";
 
 import { findTargets, makeContext, renderGenericSnippet, resolveAttachPort, TARGETS, type AttachResult } from "../attach.js";
-import { getHost, loadExternalHosts, renderGuide } from "../hosts/registry.js";
+import { getHost, loadExternalHosts, renderGuide, listHosts } from "../hosts/registry.js";
+import { locateHostFiles, hostAttached } from "../hosts/engine.js";
+import { checkHost, summarizeHealth } from "../hosts/health.js";
+import { probeProxyPort, renderProxyProbe } from "../core/proxyProbe.js";
 import { disable as disableAutostart, enable as enableAutostart, statusTransport } from "../autostart.js";
 import { readLastPort, writeLastPort } from "../state.js";
 import { renderHealthCard } from "./card.js";
@@ -66,6 +69,7 @@ const USAGE = `dobostitch —— DoboCache 本地代理层
   dobostitch providers detect        只列本机真实装了的底座
   dobostitch providers show <id>     单个底座的配置文件位置与手填片段
   dobostitch providers plan <id>     预览会改哪几个文件（不写盘）
+  dobostitch providers health [id]   体检已接入的底座（只读：条目在不在 / 配置能否解析 / 脚本还在不在）
 `;
 
 /** 改写档位默认值 */
@@ -314,6 +318,43 @@ async function commandDoctor(argv: string[] = []): Promise<void> {
   for (const check of checks) {
     console.log(`  [${check.ok ? "通过" : "失败"}] ${check.name}：${check.detail}`);
   }
+
+  // v0.7.3：网关三态提示（listening / refused / listening_other / timeout）
+  // 这条放在接入体检前面：代没起来时，底座配得再对也不会有缓存收益。
+  const probe = await probeProxyPort();
+  console.log("[dobostitch] 网关：");
+  console.log(`  [${probe.status === "listening" ? "通过" : probe.status === "listening_other" ? "提示" : "失败"}] ${renderProxyProbe(probe).replace(/\n/g, "\n  ")}`);
+
+  // v0.7.3：底座接入体检（只读，不修不改）
+  const meta = makeContext(readLastPort() ?? DEFAULT_PORT, true);
+  const installed = listHosts()
+    .map((host) => ({ host, files: locateHostFiles(host) }))
+    .filter((item) => item.files.length > 0 || hostAttached(item.host));
+  console.log("[dobostitch] 底座接入体检：");
+  if (installed.length === 0) {
+    console.log("  [通过] 本机没探测到已装底座，跳过（装了之后再跑一次 doctor 即可体检）");
+  } else {
+    const healths = installed.map((item) =>
+      checkHost(item.host, item.files, { bundlePath: meta.bundlePath, proxyBase: `http://127.0.0.1:${meta.port}` }),
+    );
+    const summary = summarizeHealth(healths);
+    for (const health of healths) {
+      const tag = health.level === "ok" ? "通过" : health.level === "warn" ? "提示" : "失败";
+      console.log(`  [${tag}] ${health.label}（${health.hostId}）${health.attached ? "" : "· 未接入"}`);
+      for (const file of health.files) {
+        console.log(`        ${file.file}`);
+        for (const check of file.checks) {
+          if (check.level === "ok") continue; // 只打有问题的项，正常项不刷屏
+          console.log(`        · [${check.level === "warn" ? "提示" : "失败"}] ${check.name}：${check.detail}`);
+        }
+      }
+    }
+    console.log(`        合计：正常 ${summary.ok} 家 / 提示 ${summary.warn} 家 / 有问题 ${summary.broken} 家`);
+    if (summary.broken + summary.warn > 0) {
+      console.log("        要修：dobostitch providers health <id> 看单家详情，再 attach --revert 或重跑 attach");
+    }
+  }
+
   const handoffNotice = handoffDirNotice();
   if (handoffNotice) console.log(`  [提示] 交接单目录：${handoffNotice}`);
   const handoffWarning = handoffDirWarning();
@@ -379,6 +420,37 @@ function commandProviders(argv: string[]): void {
   }
 
   const id = rest[0] ?? "";
+
+  if (action === "health") {
+    // v0.7.3：单家 / 全量体检。只读，不修不改。
+    const targets = id === "" ? listHosts() : listHosts().filter((item) => item.id === id);
+    if (targets.length === 0) {
+      console.error(`[dobostitch] 不认识的底座：${id}；先跑 dobostitch providers list 看清单`);
+      process.exitCode = 1;
+      return;
+    }
+    const proxyBase = `http://127.0.0.1:${port}`;
+    let problems = 0;
+    for (const item of targets) {
+      const files = locateHostFiles(item);
+      if (files.length === 0 && !hostAttached(item)) continue;
+      const health = checkHost(item, files, { bundlePath: ctx.bundlePath, proxyBase });
+      const tag = health.level === "ok" ? "通过" : health.level === "warn" ? "提示" : "失败";
+      console.log(`[${tag}] ${health.label}（${health.hostId}）${health.attached ? "" : "· 未接入"}`);
+      if (files.length === 0) console.log("      配置文件：未找到（只按接入记录判断）");
+      for (const file of health.files) {
+        console.log(`      配置文件：${file.file}`);
+        for (const check of file.checks) {
+          const mark = check.level === "ok" ? "通过" : check.level === "warn" ? "提示" : "失败";
+          console.log(`        · [${mark}] ${check.name}：${check.detail}`);
+        }
+      }
+      if (health.level !== "ok") problems += 1;
+    }
+    if (problems === 0) console.log("[dobostitch] 体检没发现问题。");
+    return;
+  }
+
   const target = TARGETS.find((item) => item.id === id);
   if (!id || !target) {
     console.error(`[dobostitch] 不认识的底座：${id || "（空）"}；先跑 dobostitch providers list 看清单`);
@@ -419,7 +491,7 @@ function commandProviders(argv: string[]): void {
     return;
   }
 
-  console.error(`[dobostitch] providers 不认识的动作：${action}（可选 list / detect / show / plan）`);
+  console.error(`[dobostitch] providers 不认识的动作：${action}（可选 list / detect / show / plan / health）`);
   process.exitCode = 1;
 }
 

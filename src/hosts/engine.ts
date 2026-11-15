@@ -285,7 +285,15 @@ function applyBlock(descriptor: HostDescriptor, file: string, spec: ManagedBlock
 
   const backup = backupFile(file);
   writeTextAtomic(file, result.text);
-  writeSidecar(file, { target: descriptor.id, configPath: file, savedAt: new Date().toISOString(), kind: "managed-block", changes });
+  // v0.7.3：把"这次是否真的用了锚点"记下来，体检才能判断锚点消失算不算异常
+  writeSidecar(file, {
+    target: descriptor.id,
+    configPath: file,
+    savedAt: new Date().toISOString(),
+    kind: "managed-block",
+    changes,
+    ...(result.action === "inserted-anchor" && spec.anchor ? { anchor: spec.anchor } : {}),
+  });
   return { ...base, status: "applied", changes, backup, detail: descriptor.manualSteps?.[0] };
 }
 
