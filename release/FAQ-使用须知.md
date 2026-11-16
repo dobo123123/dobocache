@@ -1,6 +1,6 @@
-# FAQ / 使用须知 — DoboCache v0.6.1
+# FAQ / 使用须知 — DoboCache v0.8.0
 
-> 本文汇总挂载后最常见的问题（§零 为平台支持状态，§一–§十四 为通用使用问题；**§十五 为一键接入 `setup` 专项**；§十六 为手动代理形态专项），另有开篇「安装报错速查」13 条。所有结论均对应 v0.6.1 实际行为（v0.6.1 为纯文档版，行为与 v0.6.0 一致）；涉及数字的条目请与 `testdata/` 内原始数据核对。
+> 本文汇总挂载后最常见的问题（§零 为平台支持状态，§一–§十四 为通用使用问题；**§十五 为一键接入 `setup` 专项**；§十六 为手动代理形态专项），另有开篇「安装报错速查」13 条。所有结论均对应 v0.8.0 实际行为（v0.8.0 为纯文档版，行为与 v0.6.0 一致）；涉及数字的条目请与 `testdata/` 内原始数据核对。
 
 ---
 
@@ -43,7 +43,7 @@
 
 **解法**：
 1. 在资源管理器里打开你解压的目录，确认**能直接看到 `dist` 文件夹**
-2. 如果看到的是 `dobocache-v0.6.1` 里面再套 `dist`，说明多了一层，要把内层内容提出来
+2. 如果看到的是 `dobocache-v0.8.0` 里面再套 `dist`，说明多了一层，要把内层内容提出来
 3. 把 `dist\index.js` 整个拖进命令行会显示真实路径，复制那个
 
 ### 4. 配置改了但客户端启动失败 / 配置被忽略 / 工具列表空
@@ -428,7 +428,7 @@ Select-String -Path "$old\*.jsonl" -Pattern '::\d{13}' | Select-Object -First 5
 先确认你的版本里有这个子命令：
 
 ```powershell
-npx -y dobocache@0.6.1 dobostitch --help
+npx -y dobocache@0.8.0 dobostitch --help
 ```
 
 帮助里能看到 `setup` 这一行，说明版本对得上。看不到就是版本还没升级（早期版本没有 `setup`），先 `npm cache clean --force` 后重跑，或直接指定版本号执行。
@@ -498,7 +498,7 @@ npx -y dobocache dobostitch autostart disable      # 撤掉自启
 
 1. **看 `setup` 自己的输出**：结尾应打印识别到的客户端（`[loomy]` / `[opencode]` / `[claude-code]` 之一或多行）、被改的配置文件路径、`.bak` 备份路径，以及 `开机自启：已注册`。只看到「识别到 0 个客户端」说明这台机器上没有它认识的客户端，见下面第 10 条。
 2. **重开客户端，看工具列表**：完全退出再启动（不是关窗口），在 MCP / 工具列表里搜 `dobocache`，应能看到 **9 个工具**（`cf_meter`、`cf_report`、`cf_prune`、`cf_normalize`、`cf_ping` 等）。看不到 → 第 6 条。
-3. **让模型调一次 `cf_ping`**：返回 `pong` 和 `version` 就说明整条链路真通了。v0.6.1 的 `version` 应为 `0.6.1`（若显示 `0.5.2`，说明客户端缓存了旧进程，彻底退出客户端重开）。
+3. **让模型调一次 `cf_ping`**：返回 `pong` 和 `version` 就说明整条链路真通了。v0.8.0 的 `version` 应为 `0.8.0`（若显示 `0.5.2`，说明客户端缓存了旧进程，彻底退出客户端重开）。
 
 > **最容易踩的坑：客户端显示 `connected` / 已连接，不等于工具真的可用。**
 > 列表里的 `connected` 只能说明它读到了 MCP 配置并拉起了进程；进程起来了但工具没注册成功、加载报错、或代理端口被别的程序占用，列表照样显示 connected。**唯一判据是 `cf_ping` 真的返回 `pong: dobocache ready`。**
@@ -623,7 +623,7 @@ npx -y dobocache dobostitch autostart disable      # 撤掉自启
 
 | 项 | 怎么拿 | 示例 |
 |---|---|---|
-| DoboCache 版本 | `package.json` 里的 `version`，或 `cf_report` 返回 | `0.6.1` |
+| DoboCache 版本 | `package.json` 里的 `version`，或 `cf_report` 返回 | `0.8.0` |
 | 操作系统 | 自己报 | Windows 11 23H2 / macOS 14.5 / Ubuntu 22.04 |
 | Node.js 版本 | 命令行执行 `node -v` | `v20.11.1` |
 | 客户端名称 + 版本 | 你用的什么在加载它 | Cursor 0.48 / Claude Desktop 0.9 / Cline 3.2 |

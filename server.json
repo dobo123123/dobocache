@@ -3,7 +3,7 @@
   "name": "io.github.dobo123123/dobocache",
   "title": "DoboCache",
   "description": "Stabilizes LLM prompt-cache prefixes so provider caching hits. One command setup, no baseURL edit.",
-  "version": "0.6.1",
+  "version": "0.8.0",
   "websiteUrl": "https://github.com/dobo123123/dobocache",
   "repository": {
     "url": "https://github.com/dobo123123/dobocache",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "dobocache",
-      "version": "0.6.1",
+      "version": "0.8.0",
       "transport": {
         "type": "stdio"
       },

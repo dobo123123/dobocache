@@ -20,6 +20,8 @@ import { getHost, loadExternalHosts, renderGuide, listHosts } from "../hosts/reg
 import { locateHostFiles, hostAttached } from "../hosts/engine.js";
 import { checkHost, summarizeHealth } from "../hosts/health.js";
 import { probeProxyPort, renderProxyProbe } from "../core/proxyProbe.js";
+import { formatGainReport, judgeGain, loadSamples, DEFAULT_MIN_SAMPLES as GAIN_MIN_SAMPLES, DEFAULT_COVERAGE_FLOOR as GAIN_COVERAGE_FLOOR } from "../core/gain.js";
+import { resolveLogDir } from "../utils/logDir.js";
 import { disable as disableAutostart, enable as enableAutostart, statusTransport } from "../autostart.js";
 import { readLastPort, writeLastPort } from "../state.js";
 import { renderHealthCard } from "./card.js";
@@ -70,6 +72,11 @@ const USAGE = `dobostitch —— DoboCache 本地代理层
   dobostitch providers show <id>     单个底座的配置文件位置与手填片段
   dobostitch providers plan <id>     预览会改哪几个文件（不写盘）
   dobostitch providers health [id]   体检已接入的底座（只读：条目在不在 / 配置能否解析 / 脚本还在不在）
+
+看接入后到底有没有拿到缓存收益（v0.8.0）：
+  dobostitch gain [--dir <日志目录>] [--min-samples 20] [--coverage-floor 60] [--json]
+  只读本地白盒日志里厂商 usage 回传的命中率，给三态结论：观察到增益 / 没观察到明显增益 / 数据不足。
+  数据不够就明说不够，不硬给结论；不折算金额。
 `;
 
 /** 改写档位默认值 */
@@ -222,6 +229,57 @@ async function commandStart(argv: string[]): Promise<void> {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
   // 保持进程常驻：server 自身已挂住事件循环，这里不再额外定时器
+}
+
+/**
+ * v0.8.0：增益判定命令。
+ * 只读本地白盒日志，输出三态结论；参数只影响门槛，不影响口径。
+ */
+function commandGain(argv: string[]): void {
+  const explicitDir = argValue(argv, "dir");
+  const asJson = argv.includes("--json");
+
+  const minSamplesRaw = argValue(argv, "min-samples");
+  const minSamples = minSamplesRaw === undefined ? GAIN_MIN_SAMPLES : Number.parseInt(minSamplesRaw, 10);
+  if (!Number.isFinite(minSamples) || minSamples <= 0) {
+    console.error(`[dobostitch] --min-samples 需要正整数，收到：${minSamplesRaw}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const floorRaw = argValue(argv, "coverage-floor");
+  const coverageFloor = floorRaw === undefined ? GAIN_COVERAGE_FLOOR : Number.parseFloat(floorRaw);
+  if (!Number.isFinite(coverageFloor) || coverageFloor < 0 || coverageFloor > 100) {
+    console.error(`[dobostitch] --coverage-floor 需要 0-100 的数字，收到：${floorRaw}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const resolved = resolveLogDir({ explicitDir });
+  for (const warning of resolved.warnings) console.error(`[dobostitch] ${warning}`);
+  if (resolved.disabled) {
+    console.error("[dobostitch] 日志目录不可用（没有可写的落点），无法做增益判定。");
+    process.exitCode = 1;
+    return;
+  }
+
+  const loaded = loadSamples(resolved.dir);
+  for (const warning of loaded.warnings) console.error(`[dobostitch] ${warning}`);
+
+  const report = { ...judgeGain(loaded.samples, { minSamples, coverageFloor }), logFiles: loaded.logFiles };
+
+  if (asJson) {
+    console.log(JSON.stringify({ logDir: resolved.dir, ...report }, null, 2));
+    return;
+  }
+
+  console.log(`日志目录：${resolved.dir}`);
+  console.log("");
+  console.log(formatGainReport(report));
+  if (loaded.samples.length === 0) {
+    console.log("");
+    console.log("提示：还没有请求走过代理时这里是空的。先 dobostitch start，再把客户端 baseURL 指过来。");
+  }
 }
 
 function commandStatus(): void {
@@ -734,6 +792,9 @@ async function main(): Promise<void> {
       return;
     case "providers":
       commandProviders(rest);
+      return;
+    case "gain":
+      commandGain(rest);
       return;
     case "setup":
       await commandSetup(rest);
