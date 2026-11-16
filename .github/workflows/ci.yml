@@ -27,32 +27,27 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # macOS 托管 runner 在本仓曾长期排不到机器（run 41858839250 / 41870257274 均排队
-    # 约 15 分钟后被平台取消，runner_id 全程为 null），把整体 run 拖成 failure。
-    # 因此 macOS 仅作非阻塞补充验证：它失败不使 workflow 失败，但仍照常发车与报告。
-    # 反例留档：run 41893788049 的 macOS job 实际分配到 runner 并 19 秒全绿，
-    # 说明是「排队资源紧张 + 排队超时被取消」，不是平台不可用，故保留矩阵项而非移除。
-    # macos-latest 现为 Apple Silicon(arm64)、macos-13 为 Intel(x64)，两个架构都留在矩阵里；
-# 曾试过单独用 macos-14 建 arm64 专项 job，本仓解析为 "macos-14-arm64-us-default" 不受支持，1 秒即失败，故不采用。
+    # macOS 仅作非阻塞补充验证：它失败不使 workflow 失败，但仍照常发车与报告。
+    # macos-latest 现为 Apple Silicon(arm64)；Intel 侧曾用 macos-13，该镜像已被 GitHub
+    # 于 2025-12-04 正式退役，继续使用只会永远排队、被平台取消（见 run 41858839250 等留档），
+    # 故 v0.9.1 起改用官方 x86_64 替代 label macos-15-intel（最后一个 Intel 镜像，可用至 2027 秋）。
+    # 曾试过单独用 macos-14 建 arm64 专项 job，本仓解析为 "macos-14-arm64-us-default" 不受支持，1 秒即失败，故不采用。
     continue-on-error: ${{ startsWith(matrix.os, 'macos') }}
     strategy:
       fail-fast: false
-      # 每个平台单独给超时（v0.5.2 · P1 处置选项 1）：
-      # macos-13 是 GitHub 托管 Intel runner，供给紧张时长时间排队、最后被平台取消，
-      # 一旦被取消也会把 job 拖满整个 timeout。把它单独压到 5 分钟，
-      # 好处是不再拖累整条流水线的时长；代价是偶尔仍会看到 cancelled —— 这是平台侧
-      # 供给问题，本仓无法消除，故保留矩阵项（对外"Intel 架构在 CI 矩阵内"的表述依然成立）。
+      # 每个平台单独给超时：macOS 受托管 runner 供给影响仍可能排队，故统一 12 分钟，
+      # 不再为特定镜像单独压制（旧 macos-13 的 5 分钟特例已随退役移除）。
       matrix:
         include:
-          # macos-latest 现为 Apple Silicon(arm64)、macos-13 为 Intel(x64)，两种架构都覆盖
+          # macos-latest 为 Apple Silicon(arm64)、macos-15-intel 为 x86_64(Intel)，两种架构都覆盖
           - os: windows-latest
             timeout: 12
           - os: ubuntu-latest
             timeout: 12
           - os: macos-latest
             timeout: 12
-          - os: macos-13
-            timeout: 5
+          - os: macos-15-intel
+            timeout: 12
     # 实测正常跑完全流程 windows 39s / ubuntu 25s / macos 19s，余量充足。
     timeout-minutes: ${{ matrix.timeout }}
     steps:

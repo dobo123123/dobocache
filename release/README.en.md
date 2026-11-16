@@ -192,7 +192,7 @@ Typical call: `cf_inject(reset=true, sessionId=<your-session>, minPrefixTokens=<
 | Doc phrasing under a machine guard | `check-docs` gains a rule: if a doc shows an npx invocation the entry cannot actually serve, the build fails |
 | New `npm run typecheck` | `tsc --noEmit` runs separately from `build`, as its own CI step |
 | Dependency patch | `@hono/node-server` 2.1.5 -> 2.1.8 (patch level, no runtime behaviour change) |
-| Per-platform CI timeouts | `macos-13` (Intel) capped at 5 minutes so a queued runner cannot stall the chain; Intel stays in the matrix |
+| Per-platform CI timeouts | `macos-13` was retired by GitHub on 2025-12-04; the x86_64 slot now uses `macos-15-intel`, so Intel stays in the matrix and actually runs |
 | Claim policy | **Not a performance release, not a feature release**; hit rates identical to v0.5.1 |
 
 **v0.5.1 / v0.5.0 = shape and landing fixes (one line each)**: v0.5.0 added the second skin, the local proxy `dobostitch` (one core, two skins: point your client's `baseURL` at the local proxy when the client cannot speak MCP); v0.5.1 brought all four in-package docs from zero coverage to complete (three of them previously had no proxy content at all), added the double-click entry `start-dobostitch.cmd` and 10 proxy-specific FAQ entries. Neither version touched the caching core.

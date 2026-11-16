@@ -19,6 +19,7 @@
 ### 修复
 - **`--revert` 退不回上游 baseURL（真实缺陷，矩阵脚本抓出）**：`src/attach.ts` 的 `syncJsonTarget` 原先在 `writeJsonAtomic` **之后**才读「接入前的 baseURL」，读到的已经是自家代理地址，于是 sidecar 里记的"原值"是错的，回滚时判断成"已经是目标值"直接跳过——用户的 `https://upstream.example.invalid/v1` 再也退不回去。现改为**写盘前**取原值，并新增 `hadBaseURL` 记录"接入前到底有没有这个键"，回滚时按「复原原值 / 清空 / 删除我们加的键」三种情况分别处理。
 - 回归测试：`test/verification.test.ts` 用两份真实形态的 `opencode.json` 分别覆盖「有 baseURL 被改写后退回原值」「无 baseURL 键时回滚删键」两条路径，均要求回滚后与接入前**逐字节一致**。
+- **CI 矩阵 runner 替换**：`macos-13` 已被 GitHub 于 2025-12-04 正式退役，继续使用只会永远排队、被平台取消；改为官方 x86_64 替代 label `macos-15-intel`（最后一个 Intel 镜像，官方支持至 2027 年秋），Intel / Apple Silicon 双架构覆盖保留且能真正跑起来。
 
 ### 测试
 - 新增 `test/verification.test.ts` 11 例（台账完整性 13 项、等级/日期/证据合法性、描述符与台账一致、三档 `isAutoAttachEligible`、等级权重、auto 范围不含 docs-only、精确指定 docs-only 需显式放行、Loomy 两条回滚路径），全量 **155 例通过**（原 144 + 11）。

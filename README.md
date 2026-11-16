@@ -201,7 +201,7 @@ server 共暴露 **8 个 `cf_*` 业务工具 + 1 个连通性自检（`cf_ping`�
 | 交接目录 | 代理的会话交接目录从「包目录内」改到**平台数据目录**（Windows `%LOCALAPPDATA%\DoboCache\handoff`，macOS `~/Library/Application Support/DoboCache/handoff`，Linux `$XDG_DATA_HOME/dobocache/handoff`），并在首次启动时自动迁移旧目录里的会话（本机实测迁移 43 个）。**原先写在 `node_modules` 里的记录不再产生** |
 | 文档与守卫 | 4 份文档的代理启动写法统一订正；`scripts/check-docs.mjs` 新增 npx 写法守卫，出现 `npx dobocache@x.y.z dobostitch` 这种错配直接报 ERROR |
 | 首屏冒烟 | 新增 `scripts/smoke-firstrun.mjs`（`npm run smoke`）：断言 ① 入口转发能起来 ② 原 `dobostitch` bin 不受影响 ③ MCP 主路径仍正常握手，已接入 CI |
-| CI | 矩阵按平台独立超时，`macos-13`（Intel）不再被固定超时连带取消 |
+| CI | 四机矩阵含 `macos-15-intel`（Intel x86_64，替代已退役的 `macos-13`），各平台超时独立，不再被固定超时连带取消 |
 | 校验 | 本次实跑：`tsc --noEmit` 零报错、`eslint src test` 零告警、`vitest` **95/95** 通过、`npm run smoke` **3/3 PASS**、`check:docs` 0 ERROR / 0 WARN |
 | **不宣称** | 缓存内核、命中率与 v0.5.1 完全一致，**不是性能版**。本版只修「命令起不来」和「记录写进 node_modules」这两件事 |
 
