@@ -1,6 +1,6 @@
 {
   "name": "dobocache",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits. One command adopts it: `npx -y dobocache dobostitch setup` auto-detects installed Loomy desktop / opencode / Claude Code configs, backs them up, wires a self-starting MCP entry, points baseURL at the local proxy and registers autostart (other MCP clients mount manually; local-proxy-only mode still available). Fully local, no telemetry.",
   "type": "module",
   "main": "dist/index.js",
