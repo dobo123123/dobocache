@@ -636,6 +636,8 @@ async function commandAttach(argv: string[]): Promise<void> {
 
   const applied = results.filter((result) => result.status === "applied").length;
   const failed = results.filter((result) => result.status === "error").length;
+  // v0.8.1：写入前预检拦下的（目录/文件不可写）——这些要改打可粘贴片段
+  const blocked = results.filter((result) => result.writeBlocked === true).length;
   const touched = results.some((result) => result.status === "applied" || result.status === "dry-run");
   // 已接入状态也属于「识别到了底座」：重复执行时不能再吐 generic 片段，否则用户会以为接入失败
   const alreadyReady = results.filter(
@@ -650,11 +652,18 @@ async function commandAttach(argv: string[]): Promise<void> {
   }
 
   console.log("");
-  if (!revert && !touched && alreadyReady === 0) {
+  if (!revert && !touched && alreadyReady === 0 && blocked === 0) {
     console.log("[dobostitch] 没识别到可自动接入的底座，下面这段可直接粘到任意客户端：");
     console.log("");
     console.log(renderGenericSnippet(ctx, routes));
     return;
+  }
+  if (!revert && blocked > 0) {
+    console.log(`[dobostitch] ${blocked} 个文件的写入前预检没通过（目录或文件不可写），这些文件一个字节都没动。`);
+    console.log("            请手工把下面这段粘进对应配置文件：");
+    console.log("");
+    console.log(renderGenericSnippet(ctx, routes));
+    console.log("");
   }
   if (failed > 0) {
     console.log(`[dobostitch] ${failed} 个文件处理失败，原文件已备份，按上面提示排查后重跑即可。`);

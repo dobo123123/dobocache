@@ -13,7 +13,7 @@
 import fs from "node:fs";
 
 import { removeBlock, upsertBlock } from "./managedBlock.js";
-import { backupFile, expandGlob, readSidecar, removeSidecar, writeSidecar, writeTextAtomic } from "./paths.js";
+import { backupFile, expandGlob, probeWritable, readSidecar, removeSidecar, writeSidecar, writeTextAtomic } from "./paths.js";
 import type {
   BlockRenderContext,
   HostDescriptor,
@@ -104,6 +104,18 @@ export function applyHostFile(descriptor: HostDescriptor, file: string, ctx: Hos
   const base: Omit<HostResult, "status" | "changes"> = { target: descriptor.id, label: descriptor.label, configPath: file };
   if (!descriptor.write) {
     return { ...base, status: "skipped", changes: [], detail: "该底座只指路、不写盘（P2）" };
+  }
+  // v0.8.1：写入前预检。不可写就不碰文件，直接退回「只给片段」，
+  // 避免走完备份和原子写才失败、在磁盘上留下半截状态。
+  const probe = probeWritable(file);
+  if (!probe.writable) {
+    return {
+      ...base,
+      status: "skipped",
+      changes: [],
+      writeBlocked: true,
+      detail: `写入前预检未通过：${probe.reason}；文件一个字节都没改，请按下面给的可粘贴片段手工配置`,
+    };
   }
   try {
     return descriptor.write.kind === "json"

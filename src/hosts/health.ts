@@ -13,7 +13,7 @@
 import fs from "node:fs";
 
 import { findBlock } from "./managedBlock.js";
-import { readSidecar } from "./paths.js";
+import { probeWritable, readSidecar } from "./paths.js";
 import type { HostDescriptor, JsonWriteSpec, ManagedBlockWriteSpec } from "./types.js";
 
 export type HealthLevel = "ok" | "warn" | "broken";
@@ -193,6 +193,17 @@ export function checkHostFile(host: HostDescriptor, file: string, options: Healt
   } else {
     checks.push({ name: "接入记录", level: "warn", detail: "没有接入记录（可能是老版本写的，或用户自己手工配的）" });
   }
+
+  // v0.8.1：可写性预检——只读探测，判断这个文件以后还写不写得进去。
+  // 只给提示不判 broken：现在写不进去不等于现在不能用（可能早就接好了）。
+  const probe = probeWritable(file);
+  checks.push({
+    name: "可写性",
+    level: probe.writable ? "ok" : "warn",
+    detail: probe.writable
+      ? `${probe.probePath} 可写`
+      : `${probe.reason}——重跑 attach 会自动跳过写入、改为给可粘贴片段`,
+  });
 
   const write = host.write;
   if (write === null) {

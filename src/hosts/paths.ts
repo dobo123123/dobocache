@@ -103,6 +103,82 @@ export function backupFile(file: string): string {
   return target;
 }
 
+/** 写入前预检结果（v0.8.1 新增） */
+export interface WritableProbe {
+  /** 是否允许写 */
+  writable: boolean;
+  /** 实际被探测的路径（文件本身，或最近的已存在父目录） */
+  probePath: string;
+  /** 不可写时的原因 */
+  reason?: string;
+}
+
+function describeAccessError(err: unknown): string {
+  const code = (err as NodeJS.ErrnoException)?.code;
+  switch (code) {
+    case "EACCES":
+      return "权限不足 EACCES";
+    case "EPERM":
+      return "操作被系统拒绝 EPERM";
+    case "EROFS":
+      return "只读文件系统 EROFS";
+    case "EBUSY":
+      return "文件被占用 EBUSY";
+    default:
+      return code ? String(code) : "未知原因";
+  }
+}
+
+/**
+ * 写入前可写性预检（v0.8.1 新增）—— 只读探测，不创建、不修改任何文件。
+ *
+ * 判断顺序：
+ *   1) 目标文件存在 → 看文件本身可不可写（只读属性 / ACL 拒绝在这里暴露）；
+ *   2) 目标文件不存在 → 看它所在那一层目录可不可写
+ *      （写盘是「同目录写 tmp 再 rename」，目录不可写就一定写不进去）；
+ *      那一层目录本身也不存在 → 判为不可写（本工具不自动建目录，不猜）。
+ *
+ * 局限（如实写清，不夸大）：Windows 上 fs.access(W_OK) 主要看只读属性，
+ * 极少部分被 ACL 拒绝的目录可能探测通过、真到写盘才报 EACCES；
+ * 那种情况仍由写入侧的 try/catch 兜住，同样不会误伤原文件。
+ */
+export function probeWritable(file: string): WritableProbe {
+  const mode = fs.constants.W_OK;
+  if (fs.existsSync(file)) {
+    try {
+      fs.accessSync(file, mode);
+      return { writable: true, probePath: file };
+    } catch (err) {
+      return {
+        writable: false,
+        probePath: file,
+        reason: `${file} 不可写（${describeAccessError(err)}），常见原因是文件带只读属性，或所在磁盘/目录为只读`,
+      };
+    }
+  }
+
+  // 文件还不存在：只能看它所在的那一层目录。再往上的目录缺失时写盘不会自动 mkdir，
+  // 所以直接判为不可写，而不是「猜着建目录」。
+  const dir = path.dirname(file);
+  if (!fs.existsSync(dir)) {
+    return {
+      writable: false,
+      probePath: file,
+      reason: `上级目录不存在（${dir}），本工具不会自动创建目录`,
+    };
+  }
+  try {
+    fs.accessSync(dir, mode);
+    return { writable: true, probePath: dir };
+  } catch (err) {
+    return {
+      writable: false,
+      probePath: dir,
+      reason: `目录 ${dir} 不可写（${describeAccessError(err)}），没权限在里面创建/替换配置文件`,
+    };
+  }
+}
+
 /** 原子写文本：先写 tmp 再 rename，避免客户端读到半个文件 */
 export function writeTextAtomic(file: string, text: string): void {
   const tmp = `${file}.tmp-${process.pid}`;

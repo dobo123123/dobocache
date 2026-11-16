@@ -106,6 +106,8 @@ export interface HostResult {
   changes: string[];
   detail?: string;
   backup?: string;
+  /** v0.8.1：写入前预检判定不可写，本次一个字节都没动（CLI 据此改打可粘贴片段） */
+  writeBlocked?: boolean;
 }
 
 /** 探测结果（只读，不写盘） */
