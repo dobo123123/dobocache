@@ -129,6 +129,7 @@ export function detectHosts(hosts: HostDescriptor[] = listHosts()): HostDetectio
     since: host.since,
     confidence: host.confidence,
     platforms: host.platforms,
+    verification: host.verification,
     files: locateHostFiles(host),
     attached: hostAttached(host),
     guide: host.guide,

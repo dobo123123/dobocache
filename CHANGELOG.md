@@ -1,4 +1,35 @@
 # DoboCache Changelog
+## v0.9.1（2026-11-16）—— 内置 13 项适配收尾：逐项验证台账 + 可复算矩阵
+
+> v0.8.1 承诺过一句话：「内置 13 项适配里只有 3 家做过真机验证，不写'支持 13 家自动接入'」。
+> 这一版不是把这句话改口，而是把**每一项到底验到哪一步**写成可查的台账，并用一个可随时重跑的脚本复算，让"13 项"从一句模糊的数字变成 13 行有证据的结论。
+> 同时修掉复算过程中抓出的一个真实缺陷：**老三家 Loomy 的 `--revert` 退不回上游 baseURL**。
+
+### 新增
+- **逐项验证台账**（`src/hosts/verification.ts`）：13 项（内置 10 + 老三家 3）每一项都记 `level`（验证等级）、`at`（复核日期）、`basis`（证据）。台账是唯一口径，描述符与 CLI 都从它取。
+- **三级验证等级**（`src/hosts/types.ts` 的 `HostVerificationLevel`）：
+  - `client-confirmed`：真实客户端自己认过这条接入（4 家：Loomy / opencode / Claude Code / Codex CLI）；
+  - `write-rollback`：写入 → 真解析器校验语法 → 按真实字段校验条目 → 回滚 → 与接入前逐字节比对，全跑过，但没在这台机器上把该客户端跑起来（8 家）；
+  - `docs-only`：配置格式无法安全代写，只输出手填指引，永不写盘（1 家：Crush）。
+- **可复算矩阵脚本**（`scripts/ci-hosts-matrix.mjs`，`npm run ci:hosts-matrix`）：在沙箱目录内对 13 项逐个跑完整链路，产出 `release/适配矩阵.md`，退出码 0 = 13 项全 PASS。**不触碰用户真实配置**。
+- **Codex CLI 客户端确认取证**：本机 `codex-cli 0.141.0`，写入 `~/.codex/config.toml` 后 `codex mcp list` 能列出 `dobocache`（enabled），故 Codex CLI 由 `unverified` 升为 `client-confirmed`。
+- **CLI 展示验证等级**：`providers list` 新增「验证等级」列并解释三档含义；`providers show <id>` 打印等级、复核日期与证据原文；`providers detect` 的「可自动接入 / 需 --allow-unverified」改用统一判定函数。
+- **自动接入判定统一为 `isAutoAttachEligible`**：`docs-only` 永不合格，`verified` 且非 `docs-only` 才进 `auto`。Crush 从"可显式写入"变为"精确指定也不写盘"。
+
+### 修复
+- **`--revert` 退不回上游 baseURL（真实缺陷，矩阵脚本抓出）**：`src/attach.ts` 的 `syncJsonTarget` 原先在 `writeJsonAtomic` **之后**才读「接入前的 baseURL」，读到的已经是自家代理地址，于是 sidecar 里记的"原值"是错的，回滚时判断成"已经是目标值"直接跳过——用户的 `https://upstream.example.invalid/v1` 再也退不回去。现改为**写盘前**取原值，并新增 `hadBaseURL` 记录"接入前到底有没有这个键"，回滚时按「复原原值 / 清空 / 删除我们加的键」三种情况分别处理。
+- 回归测试：`test/verification.test.ts` 用两份真实形态的 `opencode.json` 分别覆盖「有 baseURL 被改写后退回原值」「无 baseURL 键时回滚删键」两条路径，均要求回滚后与接入前**逐字节一致**。
+
+### 测试
+- 新增 `test/verification.test.ts` 11 例（台账完整性 13 项、等级/日期/证据合法性、描述符与台账一致、三档 `isAutoAttachEligible`、等级权重、auto 范围不含 docs-only、精确指定 docs-only 需显式放行、Loomy 两条回滚路径），全量 **155 例通过**（原 144 + 11）。
+- `npm run ci:hosts-matrix`：13 项 **PASS 13 / FAIL 0**，退出码 0；Codex CLI 客户端确认 PASS。
+- `npm run ci-mcp-smoke`：9 工具全部 PASS；`npm run check:docs`：0 ERROR。
+
+### 口径（不承诺）
+- `write-rollback` 证明的是「写进去合法、条目字段正确、能原样退回」，**不等于**该客户端在你机器上一定加载成功——要客户端自己认，才叫 `client-confirmed`；
+- 未在 Linux / macOS 真机复算矩阵（与平台支持状态一致，不扩大承诺范围）；
+- 「13 项」指本仓库内置描述符 + 老三家的适配范围，**不等于**"这 13 家都做过端到端真机验证"。
+
 ## v0.9.0（2026-11-16）—— 写盘前先探权限
 
 > v0.8.1 把边界交代清楚了，其中唯一一条欠账是"写入前的权限预检没做"。这一版把它补上：**配置写不进去的时候，一个字节都不动。**

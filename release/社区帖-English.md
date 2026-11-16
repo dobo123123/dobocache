@@ -1,6 +1,6 @@
 # Show: a local MCP proxy that keeps your prompt prefix stable, and logs every step
 
-**Repo:** https://github.com/dobo123123/dobocache · **Release v0.9.0:** https://github.com/dobo123123/dobocache/releases/tag/v0.9.0 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
+**Repo:** https://github.com/dobo123123/dobocache · **Release v0.9.1:** https://github.com/dobo123123/dobocache/releases/tag/v0.9.1 · **Evidence, docs & test data:** https://github.com/dobo123123/dobocache/tree/main/release
 
 *An open-source, fully local tool for coding CLIs / agent clients — **one command to wire it up**, or mount it manually as a **stdio MCP server** / **local proxy**. No network calls, no telemetry, no sign-up.*
 
@@ -51,14 +51,14 @@ It finds the clients you **actually have** installed (**Loomy desktop / opencode
 C is the only option for clients that can't do MCP — and it requires **no config file editing at all**:
 
 ```bash
-npx -y dobocache@0.9.0 dobostitch start
+npx -y dobocache@0.9.1 dobostitch start
 # or unzip the portable build and double-click start-dobostitch.cmd
 # the terminal prints: 接入 baseURL 填：http://127.0.0.1:27880/anthropic
 ```
 
 Paste that URL into the client's **baseURL** (swap the prefix for your vendor: `/anthropic`, `/openai`, `/deepseek`). Key, model name and request body stay untouched. From the **2nd request** on, the terminal card shows the hit-rate percentage; the first requests read "未判定 (vendor did not return usage)" — that's expected, not 0%. Liveness check: `http://127.0.0.1:27880/__dobostitch/health` (note: **not** `/health`).
 
-Stated boundaries, same as always: **auto-wiring covers only those 3 client types** (we don't guess other clients' paths — a wrong guess is worse than none); the proxy path is verified on **Windows 11 hardware only**; Linux/macOS unverified. **Install one, not both** — re-running `setup` on an already-wired file is a no-op.
+Stated boundaries, same as always: **auto-wiring covers the 13 built-in adapters** (the original three — Loomy / opencode / Claude Code — plus Codex CLI, Aider, Goose, Kimi CLI, Gemini CLI, Cline, Continue, Cursor and Windsurf; Crush's config format cannot be written safely, so it only gets instructions), and **nothing outside that list is guessed** — a wrong guess is worse than none. How far each one was actually verified is listed row by row in `release/适配矩阵.md`: 4 are client-confirmed (the client itself loaded the entry), 8 are write-and-rollback recomputed byte by byte — no "13 clients supported" slogan. The proxy path is verified on **Windows 11 hardware only**; Linux/macOS unverified. **Install one, not both** — re-running `setup` on an already-wired file is a no-op.
 
 ## 3. The 20-request A/B
 
@@ -197,6 +197,6 @@ Counter-examples welcome. If your control group hits heavily *without* noise inj
 
 **Want to try it?** The step-by-step setup guide (Chinese, beginner level, `零基础三分钟上手.md`) lives in [`release/`](https://github.com/dobo123123/dobocache/tree/main/release) — six steps from installing Node to verifying success. If you hit an error, the FAQ section there lists 13 common install failures indexed by the exact error message.
 
-Direct download: [dobocache-v0.9.0-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.9.0/dobocache-v0.9.0-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
+Direct download: [dobocache-v0.9.1-portable.zip](https://github.com/dobo123123/dobocache/releases/download/v0.9.1/dobocache-v0.9.1-portable.zip) (~6.5 MB, per-request evidence included); `SHA256SUMS.txt` alongside.
 
 *Generated with AI assistance; for reference only.*

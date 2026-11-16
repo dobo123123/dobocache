@@ -1,6 +1,6 @@
-# FAQ / 使用须知 — DoboCache v0.9.0
+# FAQ / 使用须知 — DoboCache v0.9.1
 
-> 本文汇总挂载后最常见的问题（§零 为平台支持状态，§一–§十四 为通用使用问题；**§十五 为一键接入 `setup` 专项**；§十六 为手动代理形态专项），另有开篇「安装报错速查」13 条。所有结论均对应 v0.9.0 实际行为（v0.9.0 相对 v0.8.0 只做了一件事：写盘前先探一次目标位置能不能写，探不通就一个字节都不动、改为给你可粘贴的片段；其余行为不变）；涉及数字的条目请与 `testdata/` 内原始数据核对。
+> 本文汇总挂载后最常见的问题（§零 为平台支持状态，§一–§十四 为通用使用问题；**§十五 为一键接入 `setup` 专项**；§十六 为手动代理形态专项），另有开篇「安装报错速查」13 条。所有结论均对应 v0.9.1 实际行为（v0.9.0 相对 v0.8.0 只做了一件事：写盘前先探一次目标位置能不能写，探不通就一个字节都不动、改为给你可粘贴的片段；v0.9.1 给内置 13 项适配补了逐项验证台账与可复算矩阵，并修掉老三家 Loomy 回滚退不回上游 baseURL 的缺陷；其余行为不变）；涉及数字的条目请与 `testdata/` 内原始数据核对。
 
 ---
 
@@ -428,7 +428,7 @@ Select-String -Path "$old\*.jsonl" -Pattern '::\d{13}' | Select-Object -First 5
 先确认你的版本里有这个子命令：
 
 ```powershell
-npx -y dobocache@0.9.0 dobostitch --help
+npx -y dobocache@0.9.1 dobostitch --help
 ```
 
 帮助里能看到 `setup` 这一行，说明版本对得上。看不到就是版本还没升级（早期版本没有 `setup`），先 `npm cache clean --force` 后重跑，或直接指定版本号执行。
@@ -498,7 +498,7 @@ npx -y dobocache dobostitch autostart disable      # 撤掉自启
 
 1. **看 `setup` 自己的输出**：结尾应打印识别到的客户端（`[loomy]` / `[opencode]` / `[claude-code]` 之一或多行）、被改的配置文件路径、`.bak` 备份路径，以及 `开机自启：已注册`。只看到「识别到 0 个客户端」说明这台机器上没有它认识的客户端，见下面第 10 条。
 2. **重开客户端，看工具列表**：完全退出再启动（不是关窗口），在 MCP / 工具列表里搜 `dobocache`，应能看到 **9 个工具**（`cf_meter`、`cf_report`、`cf_prune`、`cf_normalize`、`cf_ping` 等）。看不到 → 第 6 条。
-3. **让模型调一次 `cf_ping`**：返回 `pong` 和 `version` 就说明整条链路真通了。v0.9.0 的 `version` 应为 `0.9.0`（若显示 `0.5.2`，说明客户端缓存了旧进程，彻底退出客户端重开）。
+3. **让模型调一次 `cf_ping`**：返回 `pong` 和 `version` 就说明整条链路真通了。v0.9.1 的 `version` 应为 `0.9.1`（若显示 `0.5.2`，说明客户端缓存了旧进程，彻底退出客户端重开）。
 
 > **最容易踩的坑：客户端显示 `connected` / 已连接，不等于工具真的可用。**
 > 列表里的 `connected` 只能说明它读到了 MCP 配置并拉起了进程；进程起来了但工具没注册成功、加载报错、或代理端口被别的程序占用，列表照样显示 connected。**唯一判据是 `cf_ping` 真的返回 `pong: dobocache ready`。**
@@ -633,7 +633,7 @@ npx -y dobocache dobostitch autostart disable      # 撤掉自启
 
 | 项 | 怎么拿 | 示例 |
 |---|---|---|
-| DoboCache 版本 | `package.json` 里的 `version`，或 `cf_report` 返回 | `0.9.0` |
+| DoboCache 版本 | `package.json` 里的 `version`，或 `cf_report` 返回 | `0.9.1` |
 | 操作系统 | 自己报 | Windows 11 23H2 / macOS 14.5 / Ubuntu 22.04 |
 | Node.js 版本 | 命令行执行 `node -v` | `v20.11.1` |
 | 客户端名称 + 版本 | 你用的什么在加载它 | Cursor 0.48 / Claude Desktop 0.9 / Cline 3.2 |
@@ -660,7 +660,7 @@ npx -y dobocache dobostitch autostart disable      # 撤掉自启
 
 ## 附：一句话速记
 
-- **v0.6.0 起一条命令接入**：`npx -y dobocache dobostitch setup`（先加 `--dry-run` 预览）；全撤用 `attach --revert` + `autostart disable`；自动识别仅 **Loomy / opencode / Claude Code**，其它客户端用 `--target generic` 拿可粘贴片段；
+- **v0.6.0 起一条命令接入**：`npx -y dobocache dobostitch setup`（先加 `--dry-run` 预览）；全撤用 `attach --revert` + `autostart disable`；内置可自动识别的底座共 **13 项**（老三家 Loomy / opencode / Claude Code + Codex CLI / Aider / Goose / Kimi CLI / Gemini CLI / Cline / Continue / Cursor / Windsurf；Crush 只给指路不写盘），先跑 `providers list` 看本机探测到谁；清单外的客户端用 `--target generic` 拿可粘贴片段；各家验到哪一步见 `release/适配矩阵.md`；
 - 白盒报告**默认关**（`DOBOCACHE_WHITEBOX=quiet`），要看就开 `once` / `always`，看累计用 `cf_report`（不花 token）；
 - `hitRate=null` = **本次没拿到厂商 usage、未判定**（旧版本此处写 0），**真实命中看厂商 usage**；
 - **第一次请求建缓存**，第二次请求起才有命中；

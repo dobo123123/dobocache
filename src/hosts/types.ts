@@ -23,6 +23,26 @@ export type HostPlatform = "win32" | "darwin" | "linux";
  */
 export type HostConfidence = "verified" | "unverified";
 
+/**
+ * 验证分级（v0.9.1「适配矩阵收尾」新增）：
+ *   client-confirmed = 真实客户端自己认过这条接入（客户端 CLI/界面能列出 dobocache）
+ *   write-rollback   = 本机真实文件系统上跑完整链路：写入 → 语法解析通过 → 条目在位 → 回滚后与接入前逐字节一致
+ *   docs-only        = 只按官方文档给指路文案、不写盘（这类不参与任何自动写入）
+ *
+ * 为什么要分级：v0.8.1 之前只写"3 家真机验证过、其余照文档写"，等于把 10 家的状态糊成一句
+ * "没验证"。分级之后每一项都带自己的证据与日期，发布口径可以逐项交代，不再需要整体兜底话术。
+ */
+export type HostVerificationLevel = "client-confirmed" | "write-rollback" | "docs-only";
+
+/** 一项底座的验证记录（写进描述符，`dobostitch providers list` 会原样打印） */
+export interface HostVerification {
+  level: HostVerificationLevel;
+  /** 最近一次复核日期 YYYY-MM-DD */
+  at: string;
+  /** 证据：在什么环境、用什么手段、得到什么结果（对外可复算，不写"应该没问题"） */
+  basis: string;
+}
+
 /** 一个候选配置文件 */
 export interface HostLocation {
   /** 绝对路径或含 ~ / 环境变量的模板，支持单层 * 展开 */
@@ -86,6 +106,8 @@ export interface HostDescriptor {
   since: string;
   platforms: HostPlatform[];
   confidence: HostConfidence;
+  /** v0.9.1：这一项自己的验证等级与证据（13 项内置适配逐项交代，不再整体兜底） */
+  verification?: HostVerification;
   /** 来源说明（文档出处 / 实测记录），对外不夸大 */
   source?: string;
   locations: HostLocation[];
@@ -122,6 +144,8 @@ export interface HostDetection {
   files: string[];
   /** 是否已写入过接入记录（读 sidecar 判断） */
   attached: boolean;
+  /** v0.9.1：验证等级（体检与清单打印用） */
+  verification?: HostVerification;
   /** 只指路时的文案 */
   guide?: string[];
 }

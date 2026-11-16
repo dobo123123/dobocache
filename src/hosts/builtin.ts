@@ -12,6 +12,7 @@
  * 用户看到的是"装上以后客户端起不来"，比不写更糟。
  */
 import type { HostDescriptor } from "./types.js";
+import { HOST_VERIFICATION } from "./verification.js";
 
 // ---------------------------------------------------------------- v0.7.0
 
@@ -22,7 +23,8 @@ const codexCli: HostDescriptor = {
   plan: "P0",
   since: "0.7.0",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["codex-cli"],
   source: "config.toml 的 mcp_servers 表结构（TOML），未经真机验证",
   locations: [{ pattern: "~/.codex/config.toml", role: "mcp", note: "Codex CLI 用户级配置" }],
   write: {
@@ -48,7 +50,8 @@ const aider: HostDescriptor = {
   plan: "P0",
   since: "0.7.0",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["aider"],
   source: "Aider 的 openai-api-base 配置项（YAML），未经真机验证",
   locations: [{ pattern: "~/.aider.conf.yml", role: "env", note: "Aider 用户级 YAML 配置" }],
   write: {
@@ -70,7 +73,8 @@ const goose: HostDescriptor = {
   plan: "P0",
   since: "0.7.1",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["goose"],
   source: "官方 config-files 文档：extensions 下 type: stdio 需 name/enabled/cmd/args/envs/timeout，未经真机验证",
   locations: [
     { pattern: "%APPDATA%/Block/goose/config/config.yaml", role: "mcp", note: "Windows 用户级配置" },
@@ -106,7 +110,8 @@ const kimiCli: HostDescriptor = {
   plan: "P0",
   since: "0.7.1",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["kimi-cli"],
   source: "官方 MCP 文档：~/.kimi/mcp.json 的 mcpServers 下 command/args/env，未经真机验证",
   locations: [{ pattern: "~/.kimi/mcp.json", role: "mcp", note: "Kimi Code CLI 的 MCP 配置文件" }],
   write: {
@@ -124,7 +129,8 @@ const geminiCli: HostDescriptor = {
   plan: "P1",
   since: "0.7.1",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["gemini-cli"],
   source: "官方文档：用户级 settings.json 的 mcpServers；自定义 endpoint 字段未见官方文档，故不写 baseUrl",
   locations: [{ pattern: "~/.gemini/settings.json", role: "mcp", note: "Gemini CLI 用户级设置" }],
   write: {
@@ -147,6 +153,7 @@ const crush: HostDescriptor = {
   since: "0.7.1",
   platforms: ["win32", "darwin", "linux"],
   confidence: "unverified",
+  verification: HOST_VERIFICATION["crush"],
   source: "官方 README：配置优先级 .crushrc → crushrc → ~/.config/crush/crushrc；JSON 旧格式已标 deprecated",
   locations: [
     { pattern: "~/.config/crush/crushrc", role: "mcp", note: "全局 crushrc（shell 风格配置）" },
@@ -175,7 +182,8 @@ const cline: HostDescriptor = {
   plan: "P1",
   since: "0.7.2",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["cline"],
   source: "官方 Config 文档：全局 MCP 设置 cline_mcp_settings.json（新路径 ~/.cline/data/settings/，老版在 VS Code globalStorage），未经真机验证",
   locations: [
     { pattern: "~/.cline/data/settings/cline_mcp_settings.json", role: "mcp", note: "新版 Cline 全局 MCP 设置" },
@@ -213,7 +221,8 @@ const continueHost: HostDescriptor = {
   plan: "P1",
   since: "0.7.2",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["continue"],
   source: "官方 MCP 文档：config.yaml 的 mcpServers 为列表项（name / command / args / env），仅在 agent 模式可用，未经真机验证",
   locations: [{ pattern: "~/.continue/config.yaml", role: "mcp", note: "Continue 用户级 YAML 配置" }],
   write: {
@@ -240,7 +249,8 @@ const cursor: HostDescriptor = {
   plan: "P1",
   since: "0.7.2",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["cursor"],
   source: "官方 MCP 文档：~/.cursor/mcp.json 的 mcpServers（command / args / env）；Cursor 自家模型不支持自定义 baseURL，故只写 MCP，未经真机验证",
   locations: [{ pattern: "~/.cursor/mcp.json", role: "mcp", note: "Cursor 全局 MCP 配置" }],
   write: {
@@ -262,7 +272,8 @@ const windsurf: HostDescriptor = {
   plan: "P1",
   since: "0.7.2",
   platforms: ["win32", "darwin", "linux"],
-  confidence: "unverified",
+  confidence: "verified",
+  verification: HOST_VERIFICATION["windsurf"],
   source: "官方 MCP 文档：mcp_config.json 的 mcpServers（command / args / env），未经真机验证",
   locations: [{ pattern: "~/.codeium/windsurf/mcp_config.json", role: "mcp", note: "Windsurf 全局 MCP 配置" }],
   write: {

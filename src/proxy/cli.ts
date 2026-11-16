@@ -19,6 +19,7 @@ import { findTargets, makeContext, renderGenericSnippet, resolveAttachPort, TARG
 import { getHost, loadExternalHosts, renderGuide, listHosts } from "../hosts/registry.js";
 import { locateHostFiles, hostAttached } from "../hosts/engine.js";
 import { checkHost, summarizeHealth } from "../hosts/health.js";
+import { HOST_VERIFICATION, isAutoAttachEligible } from "../hosts/verification.js";
 import { probeProxyPort, renderProxyProbe } from "../core/proxyProbe.js";
 import { formatGainReport, judgeGain, loadSamples, DEFAULT_MIN_SAMPLES as GAIN_MIN_SAMPLES, DEFAULT_COVERAGE_FLOOR as GAIN_COVERAGE_FLOOR } from "../core/gain.js";
 import { resolveLogDir } from "../utils/logDir.js";
@@ -433,6 +434,13 @@ function printAttachResult(result: AttachResult): void {
 }
 
 /** providers：看底座清单 / 探测本机装了谁 / 单个底座怎么填（v0.7.0 新增） */
+/** v0.9.1：验证等级的中文短标签（list / show / detect 统一口径） */
+const LEVEL_SHORT: Record<string, string> = {
+  "client-confirmed": "客户端确认",
+  "write-rollback": "写入回滚",
+  "docs-only": "仅指路",
+};
+
 function commandProviders(argv: string[]): void {
   const action = argv[0] && !argv[0].startsWith("--") ? argv[0] : "list";
   const rest = argv.slice(argv[0] && !argv[0].startsWith("--") ? 1 : 0);
@@ -446,16 +454,20 @@ function commandProviders(argv: string[]): void {
     for (const warning of warnings) console.error(`[dobostitch] 外部描述符：${warning}`);
     console.log("[dobostitch] 底座清单（P0 自动写 / P1 谨慎写 / P2 只指路；未验证的底座需 --allow-unverified 才写）");
     console.log("");
-    console.log("  档位  id               底座                  起始版本   验证        配置文件  状态");
+    console.log("  档位  id               底座                  起始版本   验证        验证等级      配置文件  状态");
     for (const target of TARGETS) {
       const files = target.locate();
       const plan = (target.plan ?? "P0").padEnd(4);
       const since = (target.since ?? "-").padEnd(9);
       const confidence = (target.confidence ?? "verified").padEnd(11);
+      const levelText = target.verification ? LEVEL_SHORT[target.verification.level] : "无记录";
       const state = files.length === 0 ? "未安装/未找到" : `${files.length} 个`;
-      console.log(`  ${plan}  ${target.id.padEnd(16)} ${padLabel(target.label).padEnd(20)} ${since} ${confidence} ${state}`);
+      console.log(
+        `  ${plan}  ${target.id.padEnd(16)} ${padLabel(target.label).padEnd(20)} ${since} ${confidence} ${padLabel(levelText).padEnd(12)} ${state}`,
+      );
     }
     console.log("");
+    console.log("  验证等级：客户端确认 = 客户端自己认过；写入回滚 = 写入/语法/条目/回滚都复算过；仅指路 = 不写盘只给指引");
     console.log("  看单个底座怎么填：dobostitch providers show <id>");
     console.log("  预览会改哪些文件：dobostitch providers plan <id>");
     return;
@@ -470,7 +482,12 @@ function commandProviders(argv: string[]): void {
     }
     console.log(`[dobostitch] 探测到 ${found.length} 个底座：`);
     for (const row of found) {
-      const hint = (row.target.plan ?? "P0") === "P2" ? "只指路" : (row.target.confidence ?? "verified") === "verified" ? "可自动接入" : "需 --allow-unverified";
+      const hint =
+        (row.target.plan ?? "P0") === "P2"
+          ? "只指路"
+          : isAutoAttachEligible(row.target.confidence ?? "verified", row.target.verification)
+            ? "可自动接入"
+            : "需 --allow-unverified";
       console.log(`  · ${row.target.id}（${row.target.label}）${hint}`);
       for (const file of row.files) console.log(`      ${file}`);
     }
@@ -520,6 +537,11 @@ function commandProviders(argv: string[]): void {
   if (action === "show") {
     console.log(`[dobostitch] ${target.label}（${target.id}）`);
     console.log(`  档位：${target.plan ?? "P0"}    起始版本：${target.since ?? "-"}    验证：${target.confidence ?? "verified"}`);
+    const verRecord = HOST_VERIFICATION[target.id];
+    if (verRecord) {
+      console.log(`  验证等级：${LEVEL_SHORT[verRecord.level]}（复核于 ${verRecord.at}）`);
+      console.log(`  证据：${verRecord.basis}`);
+    }
     if (host?.source) console.log(`  依据：${host.source}`);
     const files = target.locate();
     console.log(`  配置文件：${files.length === 0 ? "未找到（装好该底座后重试）" : ""}`);

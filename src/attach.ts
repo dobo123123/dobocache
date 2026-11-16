@@ -26,6 +26,8 @@ import { fileURLToPath } from "node:url";
 import { DEFAULT_PORT } from "./proxy/server.js";
 import { applyHostFile, locateHostFiles, revertHostFile } from "./hosts/engine.js";
 import { listHosts } from "./hosts/registry.js";
+import { HOST_VERIFICATION, isAutoAttachEligible } from "./hosts/verification.js";
+import type { HostVerification } from "./hosts/types.js";
 
 export type Status = "applied" | "dry-run" | "skipped" | "error";
 
@@ -158,6 +160,8 @@ export interface TargetDescriptor {
   plan?: "P0" | "P1" | "P2";
   /** 真机验证状态：verified 才允许 setup 自动接入 */
   confidence?: "verified" | "unverified";
+  /** v0.9.1：验证等级与证据（docs-only 永不参与自动接入） */
+  verification?: HostVerification;
   /** 从哪个版本开始支持 */
   since?: string;
   /** 候选配置文件（返回已存在的绝对路径） */
@@ -357,16 +361,35 @@ function syncJsonTarget(file: string, ctx: AttachContext, opts: SyncOptions): At
     return { target: opts.target, label: opts.label, configPath: file, status: "dry-run", changes, detail: opts.extraNote };
   }
 
+  // v0.9.1 修：这两行必须在 writeJsonAtomic 之前取。
+  // 之前是在写盘后才 getBeforeBaseURL(file)，读到的已经是"改后"的代理地址，
+  // 于是 sidecar 里记的"接入前 baseURL"其实是自家代理地址，--revert 时判断成"已经是目标值"直接跳过，
+  // 用户上游 baseURL 再也退不回去（矩阵脚本的逐字节回滚断言正是靠这条抓出来的）。
+  const baseURLBefore = getBeforeBaseURL(file, opts.label);
+  const hadBaseURL = readBaseURLKeyPresence(file);
+
   const bak = backup(file);
   writeJsonAtomic(file, json);
   writeSidecar(file, {
     target: opts.target,
     configPath: file,
     savedAt: new Date().toISOString(),
-    baseURLBefore: getBeforeBaseURL(file, opts.label),
+    baseURLBefore,
+    hadBaseURL,
     changes,
   });
   return { target: opts.target, label: opts.label, configPath: file, status: "applied", changes, backup: bak, detail: opts.extraNote };
+}
+
+/** 接入前该文件里到底有没有 baseURL 这个键（决定回滚是「复原原值」还是「删掉我们加的键」） */
+function readBaseURLKeyPresence(file: string): boolean {
+  try {
+    const json = readJson(file);
+    const options = asDict(asDict(asDict(json.provider).imodel).options);
+    return Object.prototype.hasOwnProperty.call(options, "baseURL");
+  } catch {
+    return false;
+  }
 }
 
 /** 备份文件里已经带旧值，这里返回一份便于回滚时参考（拿不到就空串） */
@@ -393,14 +416,24 @@ function revertJsonTarget(
   const changes: string[] = [];
 
   if (opts.baseURLKeys) {
+    const parent = ensureIn(json, opts.baseURLKeys.slice(0, -1));
+    const leaf = opts.baseURLKeys[opts.baseURLKeys.length - 1];
+    // v0.9.1：区分「接入前有键」和「接入前压根没这个键」，后者回滚要把我们加的键删掉
+    const hadBaseURL = sidecar.hadBaseURL === true;
     const before = typeof sidecar.baseURLBefore === "string" ? sidecar.baseURLBefore : "";
-    if (before) {
-      const parent = ensureIn(json, opts.baseURLKeys.slice(0, -1));
-      const leaf = opts.baseURLKeys[opts.baseURLKeys.length - 1];
-      if (parent[leaf] !== before) {
-        parent[leaf] = before;
-        changes.push(`baseURL 复原 -> ${before}`);
+    if (hadBaseURL) {
+      if (before) {
+        if (parent[leaf] !== before) {
+          parent[leaf] = before;
+          changes.push(`baseURL 复原 -> ${before}`);
+        }
+      } else if (parent[leaf] !== "") {
+        parent[leaf] = "";
+        changes.push("baseURL 复原（接入前是空值，已清空）");
       }
+    } else if (Object.prototype.hasOwnProperty.call(parent, leaf)) {
+      delete parent[leaf];
+      changes.push("baseURL 已删除（接入前没有这个键）");
     }
   }
 
@@ -427,9 +460,9 @@ function revertJsonTarget(
  * 老三家保持原实现不动（回归零风险），新底座全部走描述符 + 通用引擎。
  */
 const LEGACY_TARGETS: TargetDescriptor[] = [
-  { ...loomyTarget, plan: "P0", confidence: "verified", since: "0.5.3" },
-  { ...opencodeTarget, plan: "P0", confidence: "verified", since: "0.5.3" },
-  { ...claudeCodeTarget, plan: "P0", confidence: "verified", since: "0.5.3" },
+  { ...loomyTarget, plan: "P0", confidence: "verified", since: "0.5.3", verification: HOST_VERIFICATION.loomy },
+  { ...opencodeTarget, plan: "P0", confidence: "verified", since: "0.5.3", verification: HOST_VERIFICATION.opencode },
+  { ...claudeCodeTarget, plan: "P0", confidence: "verified", since: "0.5.3", verification: HOST_VERIFICATION["claude-code"] },
 ];
 
 /** 把描述符包成老接口，CLI 与 setup 侧无需感知两套实现 */
@@ -442,6 +475,7 @@ function hostTargets(): TargetDescriptor[] {
       plan: host.plan,
       confidence: host.confidence,
       since: host.since,
+      verification: host.verification,
       locate: () => locateHostFiles(host),
       sync: (file: string, ctx: AttachContext) => applyHostFile(host, file, ctx),
       revert: (file: string, ctx: AttachContext) => revertHostFile(host, file, ctx),
@@ -457,12 +491,14 @@ export const TARGETS: TargetDescriptor[] = [...LEGACY_TARGETS, ...hostTargets()]
  */
 export function findTargets(id?: string, opts: { allowUnverified?: boolean } = {}): TargetDescriptor[] {
   if (!id || id === "auto") {
-    // 自动接入只碰「已验证 + 有写盘规则」的底座，未验证的绝不偷偷写
-    return TARGETS.filter((target) => (target.confidence ?? "verified") === "verified" && target.plan !== "P2");
+    // 自动接入只碰「已验证 + 有写盘规则 + 不是只指路」的底座，未验证的绝不偷偷写
+    return TARGETS.filter(
+      (target) => target.plan !== "P2" && isAutoAttachEligible(target.confidence ?? "verified", target.verification),
+    );
   }
   const matched = TARGETS.filter((target) => target.id === id);
   if (!opts.allowUnverified) {
-    return matched.filter((target) => (target.confidence ?? "verified") === "verified");
+    return matched.filter((target) => isAutoAttachEligible(target.confidence ?? "verified", target.verification));
   }
   return matched;
 }

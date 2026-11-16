@@ -1,1 +1,114 @@
-{  "name": "dobocache",  "version": "0.9.0",  "description": "Keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits. One command adopts it: `npx -y dobocache dobostitch setup` auto-detects installed Loomy desktop / opencode / Claude Code configs, backs them up, wires a self-starting MCP entry, points baseURL at the local proxy and registers autostart (other MCP clients mount manually; local-proxy-only mode still available). Fully local, no telemetry.",  "type": "module",  "main": "dist/index.js",  "types": "dist/index.d.ts",  "bin": {    "dobocache": "dist/index.js",    "dobocache-mcp": "dist/bundle.js",    "dobostitch": "dist/proxy/cli.js"  },  "engines": {    "node": ">=18.0.0"  },  "files": [    "dist/",    "src/",    "README.md",    "CHANGELOG.md",    "LICENSE",    "NOTICE",    "SECURITY.md",    "server.json",    "release/README.zh.md",    "release/README.en.md",    "release/零基础三分钟上手.md",    "release/FAQ-使用须知.md",    "release/兼容性说明.md",    "release/社区帖-中文.md",    "release/社区帖-English.md",    "assets/",    "release/testdata/",    "release/scripts/",    "scripts/check-docs.mjs",    "scripts/ci-mcp-smoke.mjs",    "release/hitrate-comparison.png",    "release/hitrate-comparison-platforms.png"  ],  "scripts": {    "build": "tsc",    "typecheck": "tsc --noEmit",    "start": "node dist/index.js",    "start:proxy": "node dist/proxy/cli.js start",    "dev": "tsx src/index.ts",    "lint": "eslint src test",    "test": "vitest run",    "test:rewrite": "node scripts/test-rewrite.mjs",    "test:inject": "node scripts/test-inject-usage.mjs",    "check:docs": "node scripts/check-docs.mjs",    "smoke": "node scripts/smoke-firstrun.mjs"  },  "keywords": [    "mcp",    "cache",    "llm",    "prompt-caching",    "context",    "mcp-server",    "model-context-protocol",    "prompt-cache",    "context-engineering",    "token-optimization",    "local-proxy",    "proxy",    "dobostitch",    "claude-code",    "codex",    "observability",    "claude",    "openai",    "deepseek",    "anthropic",    "cost-saving"  ],  "license": "Apache-2.0",  "author": {    "name": "dobo123123",    "url": "https://github.com/dobo123123"  },  "publishConfig": {    "access": "public",    "registry": "https://registry.npmjs.org/"  },  "dependencies": {    "@modelcontextprotocol/sdk": "^1.32.2"  },  "devDependencies": {    "@types/node": "^22.0.0",    "eslint": "^9.0.0",    "tsx": "^4.0.0",    "typescript": "^5.5.0",    "typescript-eslint": "^8.72.1",    "vite": "^7.3.7",    "vitest": "^5.1.0"  },  "overrides": {    "minimatch": "^11.0.4"  },  "mcpName": "io.github.dobo123123/dobocache",  "repository": {    "type": "git",    "url": "git+https://github.com/dobo123123/dobocache.git"  },  "homepage": "https://github.com/dobo123123/dobocache",  "bugs": {    "url": "https://github.com/dobo123123/dobocache/issues"  }}
+{
+  "name": "dobocache",
+  "version": "0.9.1",
+  "description": "Keeps LLM prompt-cache prefixes stable so provider prompt caching actually hits. One command adopts it: `npx -y dobocache dobostitch setup` auto-detects installed Loomy desktop / opencode / Claude Code configs, backs them up, wires a self-starting MCP entry, points baseURL at the local proxy and registers autostart (other MCP clients mount manually; local-proxy-only mode still available). Fully local, no telemetry.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "dobocache": "dist/index.js",
+    "dobocache-mcp": "dist/bundle.js",
+    "dobostitch": "dist/proxy/cli.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "SECURITY.md",
+    "server.json",
+    "release/README.zh.md",
+    "release/README.en.md",
+    "release/零基础三分钟上手.md",
+    "release/FAQ-使用须知.md",
+    "release/兼容性说明.md",
+    "release/社区帖-中文.md",
+    "release/社区帖-English.md",
+    "assets/",
+    "release/testdata/",
+    "release/scripts/",
+    "scripts/check-docs.mjs",
+    "scripts/ci-mcp-smoke.mjs",
+    "release/hitrate-comparison.png",
+    "release/hitrate-comparison-platforms.png",
+    "scripts/ci-hosts-matrix.mjs",
+    "release/适配矩阵.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "start:proxy": "node dist/proxy/cli.js start",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "test:rewrite": "node scripts/test-rewrite.mjs",
+    "test:inject": "node scripts/test-inject-usage.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "smoke": "node scripts/smoke-firstrun.mjs",
+    "ci:hosts-matrix": "node scripts/ci-hosts-matrix.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "cache",
+    "llm",
+    "prompt-caching",
+    "context",
+    "mcp-server",
+    "model-context-protocol",
+    "prompt-cache",
+    "context-engineering",
+    "token-optimization",
+    "local-proxy",
+    "proxy",
+    "dobostitch",
+    "claude-code",
+    "codex",
+    "observability",
+    "claude",
+    "openai",
+    "deepseek",
+    "anthropic",
+    "cost-saving"
+  ],
+  "license": "Apache-2.0",
+  "author": {
+    "name": "dobo123123",
+    "url": "https://github.com/dobo123123"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "smol-toml": "^1.9.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^7.3.7",
+    "vitest": "^5.1.0",
+    "yaml": "^2.9.1"
+  },
+  "overrides": {
+    "minimatch": "^11.0.4"
+  },
+  "mcpName": "io.github.dobo123123/dobocache",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dobo123123/dobocache.git"
+  },
+  "homepage": "https://github.com/dobo123123/dobocache",
+  "bugs": {
+    "url": "https://github.com/dobo123123/dobocache/issues"
+  }
+}
